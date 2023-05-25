@@ -65,10 +65,6 @@ pub fn run(config: Config) {
                 continue;
             };
 
-            if system.games_are_directories && entry.path().is_file() {
-                continue;
-            }
-
             // increment game count for current system
             systems_map.entry(&system).and_modify(|v| v.0 += 1);
 
