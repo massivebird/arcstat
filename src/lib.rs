@@ -70,7 +70,7 @@ pub fn run(config: Config) {
 
     for (system, (game_count, file_size)) in systems_map {
         if game_count == 0 { continue }
-        println!("{: <5} {game_count: <3} {:.2}M",
+        println!("{: <5} {game_count: <4} {:.2}M",
             system.pretty_string,
             bytes_to_megabytes(file_size));
     }
