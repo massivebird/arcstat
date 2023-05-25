@@ -38,10 +38,6 @@ pub fn run(config: Config) {
     //     systems_map.entry(s).and_modify(|v| v.0 += 1);
     // };
 
-    for system in &systems {
-        systems_map.insert(&system, (0, 0));
-    }
-
     // silently skip error entries
     for entry in WalkDir::new(&config.archive_root)
         .into_iter().filter_map(|e| e.ok())
@@ -66,7 +62,7 @@ pub fn run(config: Config) {
             };
 
             // increment game count for current system
-            systems_map.entry(&system).and_modify(|v| v.0 += 1);
+            systems_map.entry(&system).and_modify(|v| v.0 += 1).or_insert((1,0));
 
             let file_size = entry.metadata().unwrap().len();
             systems_map.entry(&system).and_modify(|v| v.1 += file_size);
