@@ -1,7 +1,7 @@
 use colored::{Colorize, ColoredString};
 use std::hash::Hash;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct System {
     pub pretty_string: ColoredString,
     pub directory: String,
@@ -17,14 +17,6 @@ impl System {
         }
     }
 }
-
-impl PartialEq for System {
-    fn eq(&self, other: &Self) -> bool {
-        self.directory == other.directory
-    }
-}
-
-impl Eq for System {}
 
 impl Hash for System {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
