@@ -34,10 +34,6 @@ pub fn run(config: Config) {
     // each system has (game_count, bytes)
     let mut systems_map: HashMap<&System, (u32, u64)> = HashMap::new();
 
-    // let increment_game_count = |s: &System| {
-    //     systems_map.entry(s).and_modify(|v| v.0 += 1);
-    // };
-
     // silently skip error entries
     for entry in WalkDir::new(&config.archive_root)
         .into_iter().filter_map(|e| e.ok())
@@ -51,9 +47,6 @@ pub fn run(config: Config) {
             let base_dir = relative_pathname
                 [..relative_pathname.find("/").unwrap_or(0)]
                 .to_string();
-            // "Shadowrun"
-            let game_name = entry.path().file_stem()
-                .unwrap().to_string_lossy().into_owned();
 
             let Some(system) = systems.iter()
                 .filter(|s| s.directory == base_dir).next()
@@ -61,11 +54,17 @@ pub fn run(config: Config) {
                 continue;
             };
 
-            // increment game count for current system
-            systems_map.entry(&system).and_modify(|v| v.0 += 1).or_insert((1,0));
-
             let file_size = entry.metadata().unwrap().len();
             systems_map.entry(&system).and_modify(|v| v.1 += file_size);
+
+            // if games are directories,
+            // don't increment game count for every normal file
+            if system.games_are_directories && entry.path().is_file() {
+                continue;
+            }
+
+            // increment game count for current system
+            systems_map.entry(&system).and_modify(|v| v.0 += 1).or_insert((1,0));
         }
 
     for (system, (game_count, file_size)) in systems_map {
