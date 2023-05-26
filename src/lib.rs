@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use walkdir::WalkDir;
-use regex::Regex;
 use std::env;
 use systems::System;
 
@@ -43,6 +42,9 @@ pub fn run(config: Config) {
             let relative_pathname = entry.path()
                 .strip_prefix(&config.archive_root).unwrap()
                 .to_string_lossy();
+
+            if relative_pathname.contains("!bios") { continue }
+
             // "snes"
             let base_dir = relative_pathname
                 [..relative_pathname.find("/").unwrap_or(0)]
