@@ -69,10 +69,22 @@ pub fn run(config: Config) {
             systems_map.entry(&system).and_modify(|v| v.0 += 1).or_insert((1,0));
         }
 
+    let mut totals: (u32, u64) = (0, 0);
+
+    let mut add_to_totals = |a: (u32, u64)| {
+        totals.0 += a.0;
+        totals.1 += a.1;
+    };
+
     for (system, (game_count, file_size)) in systems_map {
         if game_count == 0 { continue }
+        add_to_totals((game_count, file_size));
         println!("{: <5} {game_count: <4} {:.2}M",
             system.pretty_string,
             bytes_to_megabytes(file_size));
     }
+
+    println!("{} {: <4} {:.2}M", " ".repeat(5),
+        totals.0,
+        bytes_to_megabytes(totals.1));
 }
