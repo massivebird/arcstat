@@ -69,9 +69,9 @@ pub fn run(config: Config) {
 
     let mut totals: (u32, u64) = (0, 0);
 
-    let mut add_to_totals = |a: (u32, u64)| {
-        totals.0 += a.0;
-        totals.1 += a.1;
+    let mut add_to_totals = |(game_count, file_size): (u32, u64)| {
+        totals.0 += game_count;
+        totals.1 += file_size;
     };
 
     // iterates systems instead of systems_map to guarantee
