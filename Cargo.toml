@@ -8,4 +8,4 @@ edition = "2021"
 [dependencies]
 regex = "1.8.2"
 walkdir = "2"
-colored = "2.0.0"
+archive_systems = { path = "../archive_systems" }

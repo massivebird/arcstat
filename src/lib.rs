@@ -1,9 +1,7 @@
 use std::collections::HashMap;
 use walkdir::WalkDir;
 use std::env;
-use systems::System;
-
-mod systems;
+use archive_systems::{System, generate_systems};
 
 pub struct Config {
     archive_root: String,
@@ -28,7 +26,7 @@ fn bytes_to_megabytes(bytes: u64) -> f32 {
 }
 
 pub fn run(config: Config) {
-    let systems = systems::generate_systems();
+    let systems = generate_systems();
 
     // each system has (game_count, bytes)
     let mut systems_map: HashMap<&System, (u32, u64)> = HashMap::new();

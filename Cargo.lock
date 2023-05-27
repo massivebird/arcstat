@@ -12,10 +12,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "arcstat"
+name = "archive_systems"
 version = "0.1.0"
 dependencies = [
  "colored",
+]
+
+[[package]]
+name = "arcstat"
+version = "0.1.0"
+dependencies = [
+ "archive_systems",
  "regex",
  "walkdir",
 ]
