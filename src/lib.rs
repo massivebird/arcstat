@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use walkdir::WalkDir;
+use walkdir::{WalkDir, DirEntry};
 use std::env;
 use archive_systems::{System, generate_systems};
 
@@ -31,9 +31,18 @@ pub fn run(config: Config) {
     // each system has (game_count, bytes)
     let mut systems_map: HashMap<&System, (u32, u64)> = HashMap::new();
 
+    let is_valid_system_dir = |e: &DirEntry| {
+        systems.iter().any(|s| e.path().to_string_lossy().contains(&s.directory))
+    };
+
+    let is_not_bios_dir = |e: &DirEntry| {
+        !e.path().to_string_lossy().contains("!bios")
+    };
+
     // silently skip error entries
-    for entry in WalkDir::new(&config.archive_root)
-        .into_iter().filter_map(|e| e.ok())
+    for entry in WalkDir::new(&config.archive_root).into_iter()
+        .filter_map(|e| e.ok()) // silently skip errorful entries
+        .filter(|e| is_not_bios_dir(e) && is_valid_system_dir(e))
         {
 
             // "snes/Shadowrun.sfc"
@@ -41,21 +50,19 @@ pub fn run(config: Config) {
                 .strip_prefix(&config.archive_root).unwrap()
                 .to_string_lossy();
 
-            if relative_pathname.contains("!bios") { continue }
-
             // "snes"
             let base_dir = relative_pathname
-                [..relative_pathname.find("/").unwrap_or(0)]
+                [..relative_pathname.find('/').unwrap_or(0)]
                 .to_string();
 
             let Some(system) = systems.iter()
-                .filter(|s| s.directory == base_dir).next()
+                .find(|s| s.directory == base_dir)
             else {
                 continue;
             };
 
             let file_size = entry.metadata().unwrap().len();
-            systems_map.entry(&system).and_modify(|v| v.1 += file_size);
+            systems_map.entry(system).and_modify(|v| v.1 += file_size);
 
             // if games are directories,
             // don't increment game count for every normal file
@@ -64,7 +71,7 @@ pub fn run(config: Config) {
             }
 
             // increment game count for current system
-            systems_map.entry(&system).and_modify(|v| v.0 += 1).or_insert((1,0));
+            systems_map.entry(system).and_modify(|v| v.0 += 1).or_insert((1,0));
         }
 
     let mut totals: (u32, u64) = (0, 0);
