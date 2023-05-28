@@ -83,15 +83,16 @@ pub fn run(config: Config) {
 
     // iterates systems instead of systems_map to guarantee
     // display (alphabetical) order
-    for system in systems.iter() {
-        if !systems_map.contains_key(&system) { continue }
-        let (game_count, file_size) = systems_map.get(&system).unwrap();
-        if *game_count == 0 { continue }
-        add_to_totals((*game_count, *file_size));
-        println!("{: <6}{game_count: <5}{:.2}M",
-            system.pretty_string,
-            bytes_to_megabytes(*file_size));
-    }
+    for system in systems
+        .iter()
+        .filter(|s| systems_map.contains_key(s))
+        {
+            let (game_count, file_size) = systems_map.get(&system).unwrap();
+            add_to_totals((*game_count, *file_size));
+            println!("{: <6}{game_count: <5}{:.2}M",
+                system.pretty_string,
+                bytes_to_megabytes(*file_size));
+        }
 
     println!("{: <6}{: <5}{:.2}M", " ",
         totals.0,
