@@ -21,8 +21,8 @@ impl Config {
     }
 }
 
-fn bytes_to_megabytes(bytes: u64) -> f32 {
-    bytes as f32 / 1_000_000.0
+fn bytes_to_gigabytes(bytes: u64) -> f32 {
+    bytes as f32 / 1_000_000_000.0
 }
 
 pub fn run(config: Config) {
@@ -89,12 +89,12 @@ pub fn run(config: Config) {
         {
             let (game_count, file_size) = systems_map.get(&system).unwrap();
             add_to_totals((*game_count, *file_size));
-            println!("{: <6}{game_count: <5}{:.2}M",
+            println!("{: <6}{game_count: <5}{:.2}G",
                 system.pretty_string,
-                bytes_to_megabytes(*file_size));
+                bytes_to_gigabytes(*file_size));
         }
 
-    println!("{: <6}{: <5}{:.2}M", " ",
+    println!("{: <6}{: <5}{:.2}G", " ",
         totals.0,
-        bytes_to_megabytes(totals.1));
+        bytes_to_gigabytes(totals.1));
 }
