@@ -39,40 +39,43 @@ pub fn run(config: Config) {
         !e.path().to_string_lossy().contains("!bios")
     };
 
-    // silently skip error entries
-    for entry in WalkDir::new(&config.archive_root).into_iter()
-        .filter_map(|e| e.ok()) // silently skip errorful entries
-        .filter(|e| is_not_bios_dir(e) && is_valid_system_dir(e))
-        {
+    let system_dirs: Vec<String> = systems.iter().map(|s| config.archive_root.to_owned() + "/" + &s.directory[..]).collect();
 
-            // "snes/Shadowrun.sfc"
-            let relative_pathname = entry.path()
-                .strip_prefix(&config.archive_root).unwrap()
-                .to_string_lossy();
+    for system_dir in system_dirs {
+        for entry in WalkDir::new(system_dir).into_iter()
+            .filter_map(|e| e.ok()) // silently skip errorful entries
+            .filter(|e| is_not_bios_dir(e) && is_valid_system_dir(e))
+            {
+                // "snes/Shadowrun.sfc"
+                let relative_pathname = entry.path()
+                    .strip_prefix(&config.archive_root).unwrap()
+                    .to_string_lossy();
 
-            // "snes"
-            let base_dir = relative_pathname
-                [..relative_pathname.find('/').unwrap_or(0)]
-                .to_string();
+                // "snes"
+                let base_dir = relative_pathname
+                    [..relative_pathname.find('/').unwrap_or(0)]
+                    .to_string();
 
-            let Some(system) = systems.iter()
-                .find(|s| s.directory == base_dir)
-            else {
-                continue;
-            };
+                let Some(system) = systems
+                    .iter()
+                    .find(|s| s.directory == base_dir)
+                else {
+                    continue;
+                };
 
-            let file_size = entry.metadata().unwrap().len();
-            systems_map.entry(system).and_modify(|v| v.1 += file_size);
+                let file_size = entry.metadata().unwrap().len();
+                systems_map.entry(system).and_modify(|v| v.1 += file_size);
 
-            // if games are directories,
-            // don't increment game count for every normal file
-            if system.games_are_directories && entry.path().is_file() {
-                continue;
+                // if games are directories,
+                // don't increment game count for every normal file
+                if system.games_are_directories && entry.path().is_file() {
+                    continue;
+                }
+
+                // increment game count for current system
+                systems_map.entry(system).and_modify(|v| v.0 += 1).or_insert((1,0));
             }
-
-            // increment game count for current system
-            systems_map.entry(system).and_modify(|v| v.0 += 1).or_insert((1,0));
-        }
+    }
 
     let mut totals: (u32, u64) = (0, 0);
 
