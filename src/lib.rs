@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::sync::{Mutex, Arc};
+use std::thread::{JoinHandle, self};
 use walkdir::{WalkDir, DirEntry};
 use std::env;
 use archive_systems::{System, generate_systems};
@@ -25,26 +27,15 @@ fn bytes_to_gigabytes(bytes: u64) -> f32 {
     bytes as f32 / 1_000_000_000.0
 }
 
-pub fn run(config: Config) {
-    let systems = generate_systems();
-
-    // each system has (game_count, bytes)
-    let mut systems_map: HashMap<&System, (u32, u64)> = HashMap::new();
-
-    let is_valid_system_dir = |e: &DirEntry| {
-        systems.iter().any(|s| e.path().to_string_lossy().contains(&s.directory))
-    };
-
-    let is_not_bios_dir = |e: &DirEntry| {
-        !e.path().to_string_lossy().contains("!bios")
-    };
-
-    let system_dirs: Vec<String> = systems.iter().map(|s| config.archive_root.to_owned() + "/" + &s.directory[..]).collect();
-
-    for system_dir in system_dirs {
-        for entry in WalkDir::new(system_dir).into_iter()
+fn create_thread<'a>(
+    config: Arc<Config>,
+    system: Arc<System>,
+    systems_map: Arc<Mutex<HashMap<System, (u32, u64)>>>
+) -> JoinHandle<()> {
+    thread::spawn(move || {
+        for entry in WalkDir::new(config.archive_root.to_owned() + "/" + system.directory.as_str()).into_iter()
             .filter_map(|e| e.ok()) // silently skip errorful entries
-            .filter(|e| is_not_bios_dir(e) && is_valid_system_dir(e))
+            .filter(|e| !e.path().to_string_lossy().contains("!bios"))
             {
                 // "snes/Shadowrun.sfc"
                 let relative_pathname = entry.path()
@@ -56,15 +47,14 @@ pub fn run(config: Config) {
                     [..relative_pathname.find('/').unwrap_or(0)]
                     .to_string();
 
-                let Some(system) = systems
-                    .iter()
-                    .find(|s| s.directory == base_dir)
-                else {
-                    continue;
-                };
+                if base_dir == "" { continue; }
 
                 let file_size = entry.metadata().unwrap().len();
-                systems_map.entry(system).and_modify(|v| v.1 += file_size);
+
+                systems_map.lock()
+                    .unwrap()
+                    .entry((*system).clone())
+                    .and_modify(|v| v.1 += file_size);
 
                 // if games are directories,
                 // don't increment game count for every normal file
@@ -73,8 +63,31 @@ pub fn run(config: Config) {
                 }
 
                 // increment game count for current system
-                systems_map.entry(system).and_modify(|v| v.0 += 1).or_insert((1,0));
+                systems_map.lock().unwrap().entry((*system).clone()).and_modify(|v| v.0 += 1).or_insert((1,0));
             }
+    })
+}
+
+pub fn run(config: Config) {
+    let systems = generate_systems().map(|s| Arc::new(s));
+
+    let config = Arc::new(config);
+
+    // each system has (game_count, bytes)
+    let systems_map: Arc<Mutex<HashMap<System, (u32, u64)>>> = Arc::new(Mutex::new(HashMap::new()));
+
+    // let system_dirs: Vec<String> = systems.iter().map(|s| config.archive_root.to_owned() + "/" + &s.directory[..]).collect();
+
+    let mut children_threads: Vec<JoinHandle<()>> = Vec::with_capacity(systems.len());
+
+    for system in systems.iter() {
+        children_threads.push(
+            create_thread(Arc::clone(&config), Arc::clone(system), Arc::clone(&systems_map))
+        )
+    }
+
+    for thread in children_threads {
+        thread.join().unwrap();
     }
 
     let mut totals: (u32, u64) = (0, 0);
@@ -88,9 +101,10 @@ pub fn run(config: Config) {
     // display (alphabetical) order
     for system in systems
         .iter()
-        .filter(|s| systems_map.contains_key(s))
+        .filter(|s| systems_map.lock().unwrap().contains_key(s.as_ref()))
         {
-            let (game_count, file_size) = systems_map.get(&system).unwrap();
+            let systems_map = systems_map.lock().unwrap();
+            let (game_count, file_size) = systems_map.get(system.as_ref()).unwrap();
             add_to_totals((*game_count, *file_size));
             println!("{: <6}{game_count: <5}{:.2}G",
                 system.pretty_string,

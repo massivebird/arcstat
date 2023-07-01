@@ -14,7 +14,6 @@ dependencies = [
 [[package]]
 name = "archive_systems"
 version = "0.1.0"
-source = "git+https://github.com/massivebird/archive_systems#2dc96e2ac6191741f9995cd6a1c337d9bbf01a79"
 dependencies = [
  "colored",
 ]
