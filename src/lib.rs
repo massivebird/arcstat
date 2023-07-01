@@ -1,8 +1,9 @@
-use std::collections::HashMap;
-use std::sync::{Mutex, Arc};
-use std::thread::{JoinHandle, self};
-use walkdir::{WalkDir, DirEntry};
-use std::env;
+use std::{
+    collections::HashMap,
+    sync::{Mutex, Arc},
+    thread::{JoinHandle, self},
+    env, process};
+use walkdir::WalkDir;
 use archive_systems::{System, generate_systems};
 
 pub struct Config {
@@ -10,16 +11,18 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn new(args: &[String]) -> Config {
+    pub fn new(args: &[String]) -> Self {
         let archive_root = args.get(2)
             .unwrap_or(&env::var("VG_ARCHIVE")
-                .unwrap_or_else(
-                    |_| panic!("Neither provided path nor VG_ARCHIVE are valid")
+                .unwrap_or_else(|_| {
+                    eprintln!("Neither provided path nor VG_ARCHIVE are valid");
+                    process::exit(1);
+                }
                 )
             )
-            .to_owned();
+            .clone();
 
-        Config { archive_root }
+        Self { archive_root }
     }
 }
 
@@ -27,67 +30,55 @@ fn bytes_to_gigabytes(bytes: u64) -> f32 {
     bytes as f32 / 1_000_000_000.0
 }
 
-fn create_thread<'a>(
+fn create_thread(
     config: Arc<Config>,
     system: Arc<System>,
     systems_map: Arc<Mutex<HashMap<System, (u32, u64)>>>
 ) -> JoinHandle<()> {
     thread::spawn(move || {
-        for entry in WalkDir::new(config.archive_root.to_owned() + "/" + system.directory.as_str()).into_iter()
-            .filter_map(|e| e.ok()) // silently skip errorful entries
+        for entry in WalkDir::new(config.archive_root.clone() + "/" + system.directory.as_str()).into_iter()
+            .filter_map(Result::ok) // silently skip errorful entries
             .filter(|e| !e.path().to_string_lossy().contains("!bios"))
+            .skip(1) // skip directory itself
             {
-                // "snes/Shadowrun.sfc"
-                let relative_pathname = entry.path()
-                    .strip_prefix(&config.archive_root).unwrap()
-                    .to_string_lossy();
-
-                // "snes"
-                let base_dir = relative_pathname
-                    [..relative_pathname.find('/').unwrap_or(0)]
-                    .to_string();
-
-                if base_dir == "" { continue; }
-
                 let file_size = entry.metadata().unwrap().len();
 
-                systems_map.lock()
-                    .unwrap()
+                // add to system's total file size
+                systems_map.lock().unwrap()
                     .entry((*system).clone())
                     .and_modify(|v| v.1 += file_size);
 
-                // if games are directories,
-                // don't increment game count for every normal file
                 if system.games_are_directories && entry.path().is_file() {
                     continue;
                 }
 
-                // increment game count for current system
-                systems_map.lock().unwrap().entry((*system).clone()).and_modify(|v| v.0 += 1).or_insert((1,0));
+                // add to system's game count
+                systems_map.lock().unwrap()
+                    .entry((*system).clone())
+                    .and_modify(|v| v.0 += 1)
+                    .or_insert((1,0));
             }
     })
 }
 
 pub fn run(config: Config) {
-    let systems = generate_systems().map(|s| Arc::new(s));
+    let systems = generate_systems().map(Arc::new);
 
     let config = Arc::new(config);
 
     // each system has (game_count, bytes)
     let systems_map: Arc<Mutex<HashMap<System, (u32, u64)>>> = Arc::new(Mutex::new(HashMap::new()));
 
-    // let system_dirs: Vec<String> = systems.iter().map(|s| config.archive_root.to_owned() + "/" + &s.directory[..]).collect();
-
     let mut children_threads: Vec<JoinHandle<()>> = Vec::with_capacity(systems.len());
 
-    for system in systems.iter() {
+    for system in &systems {
         children_threads.push(
             create_thread(Arc::clone(&config), Arc::clone(system), Arc::clone(&systems_map))
-        )
+        );
     }
 
     for thread in children_threads {
-        thread.join().unwrap();
+        thread.join().expect("Child thread has panicked");
     }
 
     let mut totals: (u32, u64) = (0, 0);
