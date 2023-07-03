@@ -90,6 +90,15 @@ pub fn run(config: Config) {
         totals.1 += file_size;
     };
 
+    let padding = 2;
+    let col_1_width = padding + systems.iter()
+        .map(|s| s.pretty_string.len())
+        .max().unwrap();
+    let col_2_width = padding + systems_map.lock().unwrap()
+        .values()
+        .map(|(game_count, _)| game_count.to_string().len())
+        .max().unwrap() as usize;
+
     // iterates systems instead of systems_map to guarantee
     // display (alphabetical) order
     for system in systems
@@ -99,9 +108,12 @@ pub fn run(config: Config) {
             let systems_map = systems_map.lock().unwrap();
             let (game_count, file_size) = systems_map.get(system.as_ref()).unwrap();
             add_to_totals((*game_count, *file_size));
-            println!("{: <6}{game_count: <5}{:.2}G",
+            println!("{: <width_1$}{game_count: <width_2$}{:.2}G",
                 system.pretty_string,
-                bytes_to_gigabytes(*file_size));
+                bytes_to_gigabytes(*file_size),
+                width_1 = col_1_width,
+                width_2 = col_2_width,
+            );
         }
 
     println!("{: <6}{: <5}{:.2}G", " ",
