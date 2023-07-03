@@ -116,7 +116,10 @@ pub fn run(config: Config) {
             );
         }
 
-    println!("{: <6}{: <5}{:.2}G", " ",
+    println!("{: <width_1$}{: <width_2$}{:.2}G", " ",
         totals.0,
-        bytes_to_gigabytes(totals.1));
+        bytes_to_gigabytes(totals.1),
+        width_1 = col_1_width,
+        width_2 = col_2_width,
+    );
 }
