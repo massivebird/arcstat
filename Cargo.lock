@@ -14,7 +14,7 @@ dependencies = [
 [[package]]
 name = "archive_systems"
 version = "0.1.0"
-source = "git+https://github.com/massivebird/archive_systems#cbdc6dd812a598d5c6b09686cbf45b685e96cbb8"
+source = "git+https://github.com/massivebird/archive_systems#9187b66e4bcd42c378e22e8a7072e842baabead0"
 dependencies = [
  "colored",
 ]
@@ -24,6 +24,7 @@ name = "arcstat"
 version = "0.1.0"
 dependencies = [
  "archive_systems",
+ "colored",
  "regex",
  "walkdir",
 ]

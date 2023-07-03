@@ -66,6 +66,18 @@ fn create_thread(
 pub fn run(config: Config) {
     let systems = generate_systems().map(Arc::new);
 
+    // For your archive, use the below definition for the `systems` variable.
+    // The syntax is System::new(
+    //   <ColoredString from "colored" crate: the system display name>,
+    //   <String: system directory relative to archive root>,
+    //   <bool: "games are stored as directories" as opposed to regular files>
+    // );
+
+    // use colored::Colorize;
+    // let systems: Vec<Arc<System>> = vec![
+    //     Arc::new(System::new("N64".truecolor(0,215,135), "n64", false)),
+    // ];
+
     let config = Arc::new(config);
 
     // each system has (game_count, bytes)
