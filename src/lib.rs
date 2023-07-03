@@ -6,6 +6,8 @@ use std::{
 use walkdir::WalkDir;
 use archive_systems::{System, generate_systems};
 
+type ArcMutexHashmap<K, V> = Arc<Mutex<HashMap<K, V>>>;
+
 pub struct Config {
     archive_root: String,
 }
@@ -33,7 +35,7 @@ fn bytes_to_gigabytes(bytes: u64) -> f32 {
 fn create_thread(
     config: Arc<Config>,
     system: Arc<System>,
-    systems_map: Arc<Mutex<HashMap<System, (u32, u64)>>>
+    systems_map: ArcMutexHashmap<System, (u32, u64)>
 ) -> JoinHandle<()> {
     thread::spawn(move || {
         for entry in WalkDir::new(config.archive_root.clone() + "/" + system.directory.as_str()).into_iter()
@@ -67,7 +69,7 @@ pub fn run(config: Config) {
     let config = Arc::new(config);
 
     // each system has (game_count, bytes)
-    let systems_map: Arc<Mutex<HashMap<System, (u32, u64)>>> = Arc::new(Mutex::new(HashMap::new()));
+    let systems_map: ArcMutexHashmap<System, (u32, u64)> = Arc::new(Mutex::new(HashMap::new()));
 
     let mut children_threads: Vec<JoinHandle<()>> = Vec::with_capacity(systems.len());
 
