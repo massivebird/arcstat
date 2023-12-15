@@ -8,4 +8,4 @@ edition = "2021"
 [dependencies]
 regex = "1.8.2"
 walkdir = "2"
-archive_systems = { git = "https://github.com/massivebird/archive_systems" }
+arcconfig = { git = "https://github.com/massivebird/arcconfig" }

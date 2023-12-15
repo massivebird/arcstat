@@ -12,18 +12,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "archive_systems"
+name = "arcconfig"
 version = "0.1.0"
-source = "git+https://github.com/massivebird/archive_systems#cbdc6dd812a598d5c6b09686cbf45b685e96cbb8"
+source = "git+https://github.com/massivebird/arcconfig#2ac007545a37423f17e0fe5a0e48376d9d9e0d46"
 dependencies = [
  "colored",
+ "yaml-rust",
 ]
 
 [[package]]
 name = "arcstat"
 version = "0.1.0"
 dependencies = [
- "archive_systems",
+ "arcconfig",
  "regex",
  "walkdir",
 ]
@@ -70,6 +71,12 @@ name = "libc"
 version = "0.2.147"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4668fb0ea861c1df094127ac5f1da3409a82116a4ba74fca2e58ef927159bb3"
+
+[[package]]
+name = "linked-hash-map"
+version = "0.5.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0717cef1bc8b636c6e1c1bbdefc09e6322da8a9321966e8928ef80d20f7f770f"
 
 [[package]]
 name = "memchr"
@@ -143,3 +150,12 @@ name = "winapi-x86_64-pc-windows-gnu"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
+
+[[package]]
+name = "yaml-rust"
+version = "0.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56c1936c4cc7a1c9ab21a1ebb602eb942ba868cbd44a99cb7cdc5892335e1c85"
+dependencies = [
+ "linked-hash-map",
+]

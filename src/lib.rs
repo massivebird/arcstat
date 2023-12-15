@@ -4,7 +4,7 @@ use std::{
     thread::{JoinHandle, self},
     env, process};
 use walkdir::WalkDir;
-use archive_systems::{System, generate_systems};
+use arcconfig::{System, read_config};
 
 type ArcMutexHashmap<K, V> = Arc<Mutex<HashMap<K, V>>>;
 
@@ -64,11 +64,14 @@ fn create_thread(
 }
 
 pub fn run(config: Config) {
-    let systems = generate_systems().map(Arc::new);
+    let systems: Vec<Arc<System>> = read_config(&config.archive_root)
+        .into_iter()
+        .map(Arc::new)
+        .collect();
 
     let config = Arc::new(config);
 
-    // each system has (game_count, bytes)
+    // track (game_count, bytes) for each system
     let systems_map: ArcMutexHashmap<System, (u32, u64)> = Arc::new(Mutex::new(HashMap::new()));
 
     let mut children_threads: Vec<JoinHandle<()>> = Vec::with_capacity(systems.len());
@@ -97,7 +100,7 @@ pub fn run(config: Config) {
     let col_2_width = padding + systems_map.lock().unwrap()
         .values()
         .map(|(game_count, _)| game_count.to_string().len())
-        .max().unwrap() as usize;
+        .max().unwrap();
 
     // iterates systems instead of systems_map to guarantee
     // display (alphabetical) order
