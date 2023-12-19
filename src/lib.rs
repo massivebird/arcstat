@@ -123,13 +123,13 @@ pub fn run() {
     };
 
     for system in all_systems_stats() {
-        let this_stats = systems_stats.lock().unwrap();
-        let (game_count, file_size) = this_stats.get(system.as_ref()).unwrap();
-        add_to_totals((*game_count, *file_size));
+        let (game_count, file_size) = *systems_stats.lock().unwrap()
+            .get(system.as_ref()).unwrap();
+        add_to_totals((game_count, file_size));
 
         println!("{: <col_1_width$}{game_count: <col_2_width$}{:.2}G",
         system.pretty_string,
-        bytes_to_gigabytes(*file_size));
+        bytes_to_gigabytes(file_size));
     }
 
     println!("{: <col_1_width$}{: <col_2_width$}{:.2}G", " ",
