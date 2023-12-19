@@ -1,5 +1,5 @@
 use arcconfig::{System, read_config};
-use colored::*;
+use colored::{Colorize, ColoredString};
 use self::config::Config;
 use std::{
     collections::HashMap,
@@ -22,28 +22,31 @@ fn create_thread(
     systems_map: ArcMutexHashmap<System, (u32, u64)>
 ) -> JoinHandle<()> {
     thread::spawn(move || {
-        for entry in WalkDir::new(config.archive_root.clone() + "/" + system.directory.as_str()).into_iter()
-            .filter_map(Result::ok) // silently skip errorful entries
-            .filter(|e| !e.path().to_string_lossy().contains("!bios"))
-            .skip(1) // skip directory itself
-            {
-                let file_size = entry.metadata().unwrap().len();
+        let walk_archive = || {
+            WalkDir::new(config.archive_root.clone() + "/" + system.directory.as_str()).into_iter()
+                .filter_map(Result::ok) // silently skip errorful entries
+                .filter(|e| !e.path().to_string_lossy().contains("!bios"))
+                .skip(1) // skip root entry
+        };
 
-                // add to system's total file size
-                systems_map.lock().unwrap()
-                    .entry((*system).clone())
-                    .and_modify(|v| v.1 += file_size);
+        for entry in walk_archive() {
+            let file_size = entry.metadata().unwrap().len();
 
-                if system.games_are_directories && entry.path().is_file() {
-                    continue;
-                }
+            // add to system's total file size
+            systems_map.lock().unwrap()
+                .entry((*system).clone())
+                .and_modify(|v| v.1 += file_size);
 
-                // add to system's game count
-                systems_map.lock().unwrap()
-                    .entry((*system).clone())
-                    .and_modify(|v| v.0 += 1)
-                    .or_insert((1,0));
+            if system.games_are_directories && entry.path().is_file() {
+                continue;
             }
+
+            // add to system's game count
+            systems_map.lock().unwrap()
+                .entry((*system).clone())
+                .and_modify(|v| v.0 += 1)
+                .or_insert((1,0));
+        }
     })
 }
 
