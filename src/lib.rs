@@ -111,18 +111,14 @@ pub fn run(config: Config) {
             let systems_map = systems_map.lock().unwrap();
             let (game_count, file_size) = systems_map.get(system.as_ref()).unwrap();
             add_to_totals((*game_count, *file_size));
-            println!("{: <width_1$}{game_count: <width_2$}{:.2}G",
+            println!("{: <col_1_width$}{game_count: <col_2_width$}{:.2}G",
                 system.pretty_string,
                 bytes_to_gigabytes(*file_size),
-                width_1 = col_1_width,
-                width_2 = col_2_width,
             );
         }
 
-    println!("{: <width_1$}{: <width_2$}{:.2}G", " ",
+    println!("{: <col_1_width$}{: <col_2_width$}{:.2}G", " ",
         totals.0,
         bytes_to_gigabytes(totals.1),
-        width_1 = col_1_width,
-        width_2 = col_2_width,
     );
 }
