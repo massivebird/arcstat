@@ -1,33 +1,16 @@
+use arcconfig::{System, read_config};
+use colored::*;
+use self::config::Config;
 use std::{
     collections::HashMap,
     sync::{Mutex, Arc},
-    thread::{JoinHandle, self},
-    env, process};
-use colored::*;
+    thread::{JoinHandle, self}
+};
 use walkdir::WalkDir;
-use arcconfig::{System, read_config};
+
+pub mod config;
 
 type ArcMutexHashmap<K, V> = Arc<Mutex<HashMap<K, V>>>;
-
-pub struct Config {
-    archive_root: String,
-}
-
-impl Config {
-    pub fn new(args: &[String]) -> Self {
-        let archive_root = args.get(2)
-            .unwrap_or(&env::var("VG_ARCHIVE")
-                .unwrap_or_else(|_| {
-                    eprintln!("Neither provided path nor VG_ARCHIVE are valid");
-                    process::exit(1);
-                }
-                )
-            )
-            .clone();
-
-        Self { archive_root }
-    }
-}
 
 fn bytes_to_gigabytes(bytes: u64) -> f32 {
     bytes as f32 / 1_000_000_000.0
