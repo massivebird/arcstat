@@ -4,7 +4,7 @@ use self::config::Config;
 use std::{
     collections::HashMap,
     sync::{Mutex, Arc},
-    thread::{JoinHandle, self}
+    thread::{JoinHandle, self}, cmp::max
 };
 use walkdir::WalkDir;
 
@@ -77,23 +77,35 @@ pub fn run(config: Config) {
         totals.1 += file_size;
     };
 
-    let padding = 4;
-    let col_1_width = padding + systems.iter()
-        .map(|s| s.pretty_string.len())
-        .max().unwrap();
-    let col_2_width = padding + systems_map.lock().unwrap()
-        .values()
-        .map(|(game_count, _)| game_count.to_string().len())
-        .max().unwrap();
+    let headers = ("System", "Games", "Size");
 
-    let column_header = |text: &str| -> ColoredString {
+    let (col_1_width, col_2_width) = {
+        let col_1 = systems.iter()
+            .map(|s| s.pretty_string.len())
+            .max().unwrap();
+
+        let col_2 = systems_map.lock().unwrap()
+            .values()
+            .map(|(game_count, _)| game_count.to_string().len())
+            .max().unwrap();
+
+        let padding = 2;
+
+        // column space must be no less than length of header
+        (
+            max(col_1, headers.0.len()) + padding,
+            max(col_2, headers.1.len()) + padding,
+        )
+    };
+
+    let styled_header = |text: &str| -> ColoredString {
         text.underline().white()
     };
 
     println!("{: <col_1_width$}{: <col_2_width$}{}",
-    column_header("System"),
-    column_header("Games"),
-    column_header("Size"));
+    styled_header(headers.0),
+    styled_header(headers.1),
+    styled_header(headers.2));
 
     // iterates systems instead of systems_map to guarantee
     // display (alphabetical) order
