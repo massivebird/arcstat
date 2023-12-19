@@ -50,9 +50,15 @@ fn create_thread(
     })
 }
 
-pub fn run(config: Config) {
+pub fn run() {
+    let config = Config::new();
+
     let systems: Vec<Arc<System>> = read_config(&config.archive_root)
         .into_iter()
+        .filter(|s| config.desired_systems.clone().map_or(
+            true,
+            |labels| labels.contains(&s.label)
+        ))
         .map(Arc::new)
         .collect();
 
