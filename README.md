@@ -16,21 +16,50 @@ Arcstat provides a summary of each game system in your archive, which includes p
 
 + Number of games
 + Cumulative storage size
+## Building
 
-## Building the project
+To manually build the project, you must first [install Rust](https://www.rust-lang.org/tools/install).
+
+Once you have Rust installed, run the following commands:
 
 ```bash
 git clone https://github.com/massivebird/arcstat
 cd arcstat
-cargo run
+cargo run # runs unoptimized build
+```
+
+### Adding arcstat to your PATH
+
+If you want to add arcstat to your PATH, I recommend building it in release mode for better optimization.
+
+```bash
+cd arcstat
+# build release mode
+cargo build --release
+# add arcstat to your PATH
+ln -rs ./target/release/arcstat <dir-in-PATH>/arcstat
+# run arcstat
+arcstat
 ```
 
 ## Usage
 
-Arcstat finds the root of your archive using the environment variable `VG_ARCHIVE`. You can set this during testing like so:
+Basic arcstat syntax is simple! You can run it without any arguments:
 
 ```bash
-VG_ARCHIVE="path/to/archive/root" cargo run
+arcstat
+```
+
+For information on all its optional arguments, run `arcstat --help`.
+
+### Locating your archive
+
+To find your archive, arcstat defaults to reading the environment variable `VG_ARCHIVE`.
+
+You can also provide this path from the command line:
+
+```bash
+arcstat --archive-path /path/to/archive
 ```
 
 ### Customization
@@ -42,6 +71,7 @@ Arcstat looks for a `config.yaml` file in the root of your archive. This configu
 Here is an example configuration:
 
 ```yaml
+# config.yaml
 systems:
   ds: # system "label" — call it whatever you want!
     display_name: "DS"
