@@ -3,6 +3,7 @@ use std::{
     sync::{Mutex, Arc},
     thread::{JoinHandle, self},
     env, process};
+use colored::*;
 use walkdir::WalkDir;
 use arcconfig::{System, read_config};
 
@@ -93,7 +94,7 @@ pub fn run(config: Config) {
         totals.1 += file_size;
     };
 
-    let padding = 2;
+    let padding = 4;
     let col_1_width = padding + systems.iter()
         .map(|s| s.pretty_string.len())
         .max().unwrap();
@@ -101,6 +102,15 @@ pub fn run(config: Config) {
         .values()
         .map(|(game_count, _)| game_count.to_string().len())
         .max().unwrap();
+
+    let column_header = |text: &str| -> ColoredString {
+        text.underline().white()
+    };
+
+    println!("{: <col_1_width$}{: <col_2_width$}{}",
+    column_header("System"),
+    column_header("Games"),
+    column_header("Size"));
 
     // iterates systems instead of systems_map to guarantee
     // display (alphabetical) order
