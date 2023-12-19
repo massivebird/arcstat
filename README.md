@@ -2,7 +2,7 @@
 
 > short for "archive search"
 
-My command line querying utility for summarizing video game archives!
+My command line utility for analyzing video game archives!
 
 🦀 written in Rust
 
