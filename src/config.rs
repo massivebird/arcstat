@@ -31,7 +31,7 @@ impl Config {
         );
 
         let desired_systems: Option<Vec<String>> = matches.get_one::<String>("desired_systems").map(
-            |labels| labels.split(',').map(ToString::to_string).collect()
+            |labels| labels.split(&[',', ' '][..]).map(ToString::to_string).collect()
         );
 
         Self {
