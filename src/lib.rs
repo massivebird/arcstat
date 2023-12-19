@@ -59,13 +59,13 @@ pub fn run(config: Config) {
     let config = Arc::new(config);
 
     // track (game_count, bytes) for each system
-    let systems_map: ArcMutexHashmap<System, (u32, u64)> = Arc::new(Mutex::new(HashMap::new()));
+    let systems_stats: ArcMutexHashmap<System, (u32, u64)> = Arc::new(Mutex::new(HashMap::new()));
 
     let mut children_threads: Vec<JoinHandle<()>> = Vec::with_capacity(systems.len());
 
     for system in &systems {
         children_threads.push(
-            create_thread(Arc::clone(&config), Arc::clone(system), Arc::clone(&systems_map))
+            create_thread(Arc::clone(&config), Arc::clone(system), Arc::clone(&systems_stats))
         );
     }
 
@@ -87,7 +87,7 @@ pub fn run(config: Config) {
             .map(|s| s.pretty_string.len())
             .max().unwrap();
 
-        let col_2 = systems_map.lock().unwrap()
+        let col_2 = systems_stats.lock().unwrap()
             .values()
             .map(|(game_count, _)| game_count.to_string().len())
             .max().unwrap();
@@ -110,20 +110,21 @@ pub fn run(config: Config) {
     styled_header(headers.1),
     styled_header(headers.2));
 
-    // iterates systems instead of systems_map to guarantee
-    // display (alphabetical) order
-    for system in systems
-        .iter()
-        .filter(|s| systems_map.lock().unwrap().contains_key(s.as_ref()))
-        {
-            let systems_map = systems_map.lock().unwrap();
-            let (game_count, file_size) = systems_map.get(system.as_ref()).unwrap();
-            add_to_totals((*game_count, *file_size));
-            println!("{: <col_1_width$}{game_count: <col_2_width$}{:.2}G",
-                system.pretty_string,
-                bytes_to_gigabytes(*file_size),
-            );
-        }
+    let all_systems_stats = || {
+        systems
+            .iter()
+            .filter(|s| systems_stats.lock().unwrap().contains_key(s.as_ref()))
+    };
+
+    for system in all_systems_stats() {
+        let this_stats = systems_stats.lock().unwrap();
+        let (game_count, file_size) = this_stats.get(system.as_ref()).unwrap();
+        add_to_totals((*game_count, *file_size));
+
+        println!("{: <col_1_width$}{game_count: <col_2_width$}{:.2}G",
+        system.pretty_string,
+        bytes_to_gigabytes(*file_size));
+    }
 
     println!("{: <col_1_width$}{: <col_2_width$}{:.2}G", " ",
         totals.0,
