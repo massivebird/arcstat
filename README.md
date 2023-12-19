@@ -7,7 +7,7 @@ My command line querying utility for summarizing video game archives!
 🦀 written in Rust
 
 <p align="center">
-  <img width="75%" src="https://massivebird.github.io/about-me/res/arcstat-example.png" />
+  <img height="75%" src="https://github.com/massivebird/arcstat/assets/33991373/fee88b87-a399-4d81-99d9-bca09e22f4b8" />
 </p>
 
 ## What does arcstat do?
