@@ -19,11 +19,11 @@ fn bytes_to_gigabytes(bytes: u64) -> f32 {
 fn create_thread(
     config: Arc<Config>,
     system: Arc<System>,
-    systems_map: ArcMutexHashmap<System, (u32, u64)>
+    data: ArcMutexHashmap<System, (u32, u64)>
 ) -> JoinHandle<()> {
     thread::spawn(move || {
         // initialize this system's data
-        systems_map.lock().unwrap()
+        data.lock().unwrap()
             .entry((*system).clone())
             .or_insert((0,0));
 
@@ -38,7 +38,7 @@ fn create_thread(
             let file_size = entry.metadata().unwrap().len();
 
             // add to this system's total file size
-            systems_map.lock().unwrap()
+            data.lock().unwrap()
                 .entry((*system).clone())
                 .and_modify(|v| v.1 += file_size);
 
@@ -49,7 +49,7 @@ fn create_thread(
             }
 
             // add to this system's total game count
-            systems_map.lock().unwrap()
+            data.lock().unwrap()
                 .entry((*system).clone())
                 .and_modify(|v| v.0 += 1);
         }
@@ -71,13 +71,13 @@ pub fn run() {
     let config = Arc::new(config);
 
     // track (game_count, bytes) for each system
-    let systems_stats: ArcMutexHashmap<System, (u32, u64)> = Arc::new(Mutex::new(HashMap::new()));
+    let data: ArcMutexHashmap<System, (u32, u64)> = Arc::new(Mutex::new(HashMap::new()));
 
     let mut children_threads: Vec<JoinHandle<()>> = Vec::with_capacity(systems.len());
 
     for system in &systems {
         children_threads.push(
-            create_thread(Arc::clone(&config), Arc::clone(system), Arc::clone(&systems_stats))
+            create_thread(Arc::clone(&config), Arc::clone(system), Arc::clone(&data))
         );
     }
 
@@ -99,7 +99,7 @@ pub fn run() {
             .map(|s| s.pretty_string.len())
             .max().unwrap();
 
-        let col_2 = systems_stats.lock().unwrap()
+        let col_2 = data.lock().unwrap()
             .values()
             .map(|(game_count, _)| game_count.to_string().len())
             .max().unwrap();
@@ -125,11 +125,11 @@ pub fn run() {
     let all_systems_stats = || {
         systems
             .iter()
-            .filter(|s| systems_stats.lock().unwrap().contains_key(s.as_ref()))
+            .filter(|s| data.lock().unwrap().contains_key(s.as_ref()))
     };
 
     for system in all_systems_stats() {
-        let (game_count, file_size) = *systems_stats.lock().unwrap()
+        let (game_count, file_size) = *data.lock().unwrap()
             .get(system.as_ref()).unwrap();
         add_to_totals((game_count, file_size));
 
@@ -139,7 +139,7 @@ pub fn run() {
     }
 
     println!("{: <col_1_width$}{: <col_2_width$}{:.2}G", " ",
-        totals.0,
-        bytes_to_gigabytes(totals.1),
-    );
+    totals.0,
+    bytes_to_gigabytes(totals.1),
+);
 }
