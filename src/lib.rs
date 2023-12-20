@@ -12,21 +12,78 @@ pub mod config;
 
 type ArcMutexHashmap<K, V> = Arc<Mutex<HashMap<K, V>>>;
 
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+enum ColumnType {
+    GameCount,
+    FileSize,
+}
+
+impl ColumnType {
+    fn get_header(&self) -> String {
+        match self {
+            Self::GameCount => "Games".to_string(),
+            Self::FileSize => "Size".to_string(),
+        }
+    }
+
+    fn get_width(&self) -> usize {
+        self.get_header().len()
+    }
+}
+
+#[derive(Debug, Clone)]
+struct Column {
+    header: String,
+    col_type: ColumnType,
+    values: HashMap<System, u64>,
+}
+
+impl Column {
+    fn new(header: &str, col_type: ColumnType) -> Self {
+        Column {
+            header: header.to_string(),
+            col_type,
+            values: HashMap::new(),
+        }
+    }
+
+    fn calc_width(&self) -> usize {
+        if self.values.len() == 0 {
+            return 0;
+        }
+
+        max(
+            self.header.len(),
+            self.values.values().map(|v| v.to_string().len()).max().unwrap()
+        )
+    }
+
+    fn get_total(&self) -> u64 {
+        self.values.values().sum()
+    }
+    
+    fn add(&mut self, system: System, value: u64) {
+        self.values.entry(system.clone()).and_modify(|v| *v += value);
+    }
+}
+
+fn calc_width(col_type: &ColumnType, values: ArcMutexHashmap<System, u64>) -> usize {
+    max(
+        col_type.get_width(),
+        values.lock().unwrap().values().map(|v| v.to_string().len()).max().unwrap()
+    )
+}
+
 fn bytes_to_gigabytes(bytes: u64) -> f32 {
     bytes as f32 / 1_000_000_000.0
 }
 
 fn create_thread(
     config: Arc<Config>,
-    system: Arc<System>,
-    data: ArcMutexHashmap<System, (u32, u64)>
+    system: System,
+    columns: Arc<Mutex<Vec<Column>>>
 ) -> JoinHandle<()> {
     thread::spawn(move || {
-        // initialize this system's data
-        data.lock().unwrap()
-            .entry((*system).clone())
-            .or_insert((0,0));
-
         let walk_archive = || {
             WalkDir::new(config.archive_root.clone() + "/" + system.directory.as_str()).into_iter()
                 .filter_map(Result::ok) // silently skip errorful entries
@@ -34,13 +91,14 @@ fn create_thread(
                 .skip(1) // skip archive root entry
         };
 
+        // let add_if_exists = |col_type: ColumnType, value: u64| {
+        //     columns.lock().unwrap().iter_mut().find(|h| h.col_type == col_type).unwrap().add(system.clone(), value);
+        // };
+
         for entry in walk_archive() {
             let file_size = entry.metadata().unwrap().len();
 
-            // add to this system's total file size
-            data.lock().unwrap()
-                .entry((*system).clone())
-                .and_modify(|v| v.1 += file_size);
+            columns.lock().unwrap().iter_mut().find(|h| h.col_type == ColumnType::FileSize).unwrap().add(system.clone(), file_size);
 
             // if games are represented as directories,
             // increment game count only once per directory
@@ -48,10 +106,7 @@ fn create_thread(
                 continue;
             }
 
-            // add to this system's total game count
-            data.lock().unwrap()
-                .entry((*system).clone())
-                .and_modify(|v| v.0 += 1);
+            // add_if_exists(ColumnType::GameCount, file_size);
         }
     })
 }
@@ -59,87 +114,90 @@ fn create_thread(
 pub fn run() {
     let config = Config::new();
 
-    let systems: Vec<Arc<System>> = read_config(&config.archive_root)
+    let systems: Vec<System> = read_config(&config.archive_root)
         .into_iter()
         .filter(|s| config.desired_systems.clone().map_or(
             true,
             |labels| labels.contains(&s.label)
         ))
-        .map(Arc::new)
         .collect();
 
     let config = Arc::new(config);
 
-    // track (game_count, bytes) for each system
-    let data: ArcMutexHashmap<System, (u32, u64)> = Arc::new(Mutex::new(HashMap::new()));
+    let mut columns: Vec<Column> = {
+        let mut v: Vec<Column> = Vec::new();
+        v.push(Column::new("Games", ColumnType::GameCount));
+        v.push(Column::new("Size", ColumnType::FileSize));
+        v
+    };
+
+    for column in columns.iter_mut() {
+        for system in systems.iter() {
+            column.values.entry(system.clone()).or_insert(0);
+        }
+    }
 
     let mut children_threads: Vec<JoinHandle<()>> = Vec::with_capacity(systems.len());
 
+    let columns = Arc::new(Mutex::new(columns));
+
     for system in &systems {
         children_threads.push(
-            create_thread(Arc::clone(&config), Arc::clone(system), Arc::clone(&data))
+            create_thread(Arc::clone(&config), system.clone(), Arc::clone(&columns))
         );
     }
+
+    let columns = columns.lock().unwrap();
 
     for thread in children_threads {
         thread.join().expect("Child thread has panicked");
     }
 
-    let mut totals: (u32, u64) = (0, 0);
-
-    let mut add_to_totals = |(game_count, file_size): (u32, u64)| {
-        totals.0 += game_count;
-        totals.1 += file_size;
-    };
-
-    let headers = ("System", "Games", "Size");
-
-    let (col_1_width, col_2_width) = {
-        let col_1 = systems.iter()
-            .map(|s| s.pretty_string.len())
-            .max().unwrap();
-
-        let col_2 = data.lock().unwrap()
-            .values()
-            .map(|(game_count, _)| game_count.to_string().len())
-            .max().unwrap();
-
-        let padding = 2;
-
-        // column space must be no less than length of header
-        (
-            max(col_1, headers.0.len()) + padding,
-            max(col_2, headers.1.len()) + padding,
-        )
-    };
-
     let styled_header = |text: &str| -> ColoredString {
         text.underline().white()
     };
 
-    println!("{: <col_1_width$}{: <col_2_width$}{}",
-    styled_header(headers.0),
-    styled_header(headers.1),
-    styled_header(headers.2));
-
-    let all_systems_stats = || {
-        systems
-            .iter()
-            .filter(|s| data.lock().unwrap().contains_key(s.as_ref()))
-    };
-
-    for system in all_systems_stats() {
-        let (game_count, file_size) = *data.lock().unwrap()
-            .get(system.as_ref()).unwrap();
-        add_to_totals((game_count, file_size));
-
-        println!("{: <col_1_width$}{game_count: <col_2_width$}{:.2}G",
-        system.pretty_string,
-        bytes_to_gigabytes(file_size));
+    {
+        let width = systems.iter().map(|s| s.pretty_string.len()).max().unwrap() + 2;
+        let header = styled_header("System");
+        print!("{header}{}", " ".repeat(2 + width - header.len()));
     }
 
-    println!("{: <col_1_width$}{: <col_2_width$}{:.2}G", " ",
-    totals.0,
-    bytes_to_gigabytes(totals.1),
-);
+    for col in columns.iter() {
+        let width = col.calc_width();
+        let header = styled_header(&col.header);
+        print!("{header}{}", " ".repeat(2));
+    }
+    println!();
+
+    dbg!(&columns);
+
+    let name_width = systems.iter().map(|s| s.pretty_string.len()).max().unwrap() + 2;
+    for system in systems.iter() {
+        print!("{: <name_width$}", system.pretty_string);
+        for col in columns.iter() {
+            let numero = col.values.get(system).unwrap();
+            let width = col.calc_width();
+            print!("{numero: <width$}");
+        }
+    }
+
+    // for system in all_systems_stats() {
+    //     let game_count = data.lock().unwrap()
+    //         .get(system.as_ref()).unwrap()
+    //         .get(&ColumnType::GameCount).unwrap().clone();
+
+    //     let file_size = data.lock().unwrap()
+    //         .get(system.as_ref()).unwrap()
+    //         .get(&ColumnType::FileSize).unwrap().clone();
+
+    //     println!("{: <col_1_width$}{game_count: <col_2_width$}{:.2}G",
+    //     system.pretty_string,
+    //     bytes_to_gigabytes(file_size));
+    // }
+
+    // println!("{: <col_1_width$}{: <col_2_width$}{:.2}G", " ",
+    // totals.0,
+    // bytes_to_gigabytes(totals.1),
+// );
 }
