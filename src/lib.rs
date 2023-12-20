@@ -22,30 +22,36 @@ fn create_thread(
     systems_map: ArcMutexHashmap<System, (u32, u64)>
 ) -> JoinHandle<()> {
     thread::spawn(move || {
+        // initialize this system's data
+        systems_map.lock().unwrap()
+            .entry((*system).clone())
+            .or_insert((0,0));
+
         let walk_archive = || {
             WalkDir::new(config.archive_root.clone() + "/" + system.directory.as_str()).into_iter()
                 .filter_map(Result::ok) // silently skip errorful entries
                 .filter(|e| !e.path().to_string_lossy().contains("!bios"))
-                .skip(1) // skip root entry
+                .skip(1) // skip archive root entry
         };
 
         for entry in walk_archive() {
             let file_size = entry.metadata().unwrap().len();
 
-            // add to system's total file size
+            // add to this system's total file size
             systems_map.lock().unwrap()
                 .entry((*system).clone())
                 .and_modify(|v| v.1 += file_size);
 
+            // if games are represented as directories,
+            // increment game count only once per directory
             if system.games_are_directories && entry.path().is_file() {
                 continue;
             }
 
-            // add to system's game count
+            // add to this system's total game count
             systems_map.lock().unwrap()
                 .entry((*system).clone())
-                .and_modify(|v| v.0 += 1)
-                .or_insert((1,0));
+                .and_modify(|v| v.0 += 1);
         }
     })
 }
