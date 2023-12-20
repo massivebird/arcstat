@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
++ Fixed fatal bug on finding zero games in an archive (#6)
+
+### Documentation
+
++ Updated demo image to match current project visuals
++ Updated README's Building and Usage sections
++ Updated project synopsis semantics
+
 ## [0.1.3] - 2023-12-19
 
 ### Fixed
