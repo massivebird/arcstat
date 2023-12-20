@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
++ Renamed `systems_map` variable to `data`
+
 ### Fixed
 
 + Fixed fatal bug on finding zero games in an archive (#6)
