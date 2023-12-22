@@ -39,9 +39,13 @@ impl Column {
             return self.header.len();
         }
 
+        let max_data_length = self.data.values()
+            .map(|&v| display_data(&self, v).to_string().len())
+            .max().unwrap();
+
         max(
             self.header.len(),
-            self.data.values().map(|v| v.to_string().len()).max().unwrap()
+            max_data_length
         ) + padding
     }
     
@@ -86,6 +90,13 @@ fn create_thread(
             add_if_exists(ColumnType::GameCount, 1);
         }
     })
+}
+
+fn display_data(column: &Column, raw_data: u64) -> String {
+    match column.col_type {
+        ColumnType::FileSize => display_bytes_as_gigabytes(raw_data),
+        ColumnType::GameCount => raw_data.to_string(),
+    }
 }
 
 pub fn run() {
@@ -147,18 +158,15 @@ pub fn run() {
 
     for col in columns.iter() {
         let header = styled_header(&col.header);
-        print!("{header}{}", " ".repeat(2));
+        print!("{header}{}", " ".repeat(col.calc_width() - header.len()));
     }
     println!();
 
     for system in &systems {
         print!("{: <name_column_width$}", system.pretty_string);
         for col in columns.iter() {
-            let raw_data = col.data.get(system).unwrap();
-            let output = match col.col_type {
-                ColumnType::FileSize => display_bytes_as_gigabytes(*raw_data),
-                ColumnType::GameCount => raw_data.to_string(),
-            };
+            let raw_data = *col.data.get(system).unwrap();
+            let output = display_data(col, raw_data);
             let width = col.calc_width();
             print!("{output: <width$}");
         }
