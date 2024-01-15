@@ -89,3 +89,12 @@ systems:
     path: "wbfs"
     games_are_directories: true
 ```
+
+## Other arcosystem projects
+
+Arcstat belongs to a family of projects called the arcosystem!
+
+Check out some other arcosystem projects:
+
++ [arcsearch](https://github.com/massivebird/arcsearch): game archive querying
++ [arcconfig](https://github.com/massivebird/arcconfig): backbone of the arcosystem
