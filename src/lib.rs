@@ -27,11 +27,14 @@ fn create_thread(
             .entry((*system).clone())
             .or_insert((0,0));
 
+        let system_path = &(config.archive_root.clone() + "/" + system.directory.as_str());
+
         let walk_archive = || {
-            WalkDir::new(config.archive_root.clone() + "/" + system.directory.as_str()).into_iter()
+            std::path::Path::new(system_path)
+                .read_dir()
+                .unwrap()
                 .filter_map(Result::ok) // silently skip errorful entries
                 .filter(|e| !e.path().to_string_lossy().contains("!bios"))
-                .skip(1) // skip archive root entry
         };
 
         for entry in walk_archive() {
@@ -46,6 +49,15 @@ fn create_thread(
             // increment game count only once per directory
             if system.games_are_directories && entry.path().is_file() {
                 continue;
+            }
+
+            if system.games_are_directories && entry.path().is_dir() {
+                for _game_part in &entry.path() {
+                    // add to this system's total file size
+                    systems_map.lock().unwrap()
+                        .entry((*system).clone())
+                        .and_modify(|v| v.1 += file_size);
+                }
             }
 
             // add to this system's total game count
