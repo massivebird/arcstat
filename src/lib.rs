@@ -4,7 +4,7 @@ use self::config::Config;
 use std::{
     collections::HashMap,
     sync::{Mutex, Arc},
-    thread::{JoinHandle, self}, cmp::max
+    thread::{JoinHandle, self}, cmp::max, path::Path
 };
 
 pub mod config;
@@ -29,20 +29,31 @@ fn create_thread(
         let system_path = &(config.archive_root.clone() + "/" + system.directory.as_str());
 
         let walk_archive = || {
-            std::path::Path::new(system_path)
+            Path::new(system_path)
                 .read_dir()
                 .unwrap()
                 .filter_map(Result::ok) // silently skip errorful entries
                 .filter(|e| !e.path().to_string_lossy().contains("!bios"))
         };
 
-        for entry in walk_archive() {
-            let file_size = entry.metadata().unwrap().len();
-
+        let add_to_total_system_size = |n: u64| {
             // add to this system's total file size
             systems_map.lock().unwrap()
                 .entry((*system).clone())
-                .and_modify(|v| v.1 += file_size);
+                .and_modify(|v| v.1 += n);
+        };
+
+        let increment_total_system_games = || {
+            // add to this system's total game count
+            systems_map.lock().unwrap()
+                .entry((*system).clone())
+                .and_modify(|v| v.0 += 1);
+        };
+
+        for entry in walk_archive() {
+            let file_size = entry.metadata().unwrap().len();
+
+            add_to_total_system_size(file_size);
 
             // if games are represented as directories,
             // increment game count only once per directory
@@ -51,19 +62,21 @@ fn create_thread(
             }
 
             if system.games_are_directories && entry.path().is_dir() {
-                for game_part in std::path::Path::new(&entry.path()).read_dir().unwrap().filter_map(Result::ok) {
-                    let file_size = game_part.metadata().unwrap().len();
-                    // add to this system's total file size
-                    systems_map.lock().unwrap()
-                        .entry((*system).clone())
-                        .and_modify(|v| v.1 += file_size);
+                // game is split into one or more files inside this directory
+                let game_parts = || {
+                    Path::new(&entry.path())
+                        .read_dir()
+                        .unwrap()
+                        .filter_map(Result::ok) 
+                };
+
+                for part in game_parts() {
+                    let file_size = part.metadata().unwrap().len();
+                    add_to_total_system_size(file_size);
                 }
             }
 
-            // add to this system's total game count
-            systems_map.lock().unwrap()
-                .entry((*system).clone())
-                .and_modify(|v| v.0 += 1);
+            increment_total_system_games();
         }
     })
 }
