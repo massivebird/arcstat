@@ -16,6 +16,36 @@ Arcstat provides a summary of each game system in your archive, which includes p
 
 + Number of games
 + Cumulative storage size
+
+### What is a valid video game archive?
+
+A valid archive file system structure should follow these general rules:
+
++ Contains a `config.yaml` in the archive root (see: [Customization](#customization))
++ Immediate root subdirectories represent individual game systems
++ Files in system directories represent individual games
+  + These games can be either be files or directories
+
+Here is an example of a valid archive structure:
+
+```bash
+/game/archive/root
+├── ds
+│   ├── game-1.nds
+│   ├── game-2.nds
+│   └── game-3.nds
+├── wii
+│   ├── game-1-dir
+│   │   └── game-1-0.wbfs
+│   └── game-2-dir
+│       ├── game-2-0.wbfs
+│       └── game-2-1.wbfs
+└── config.yaml
+```
+
+> [!tip]
+> While it is possible to place system directories multiple levels below the archive root (such as in `root/systems/consoles/ps2`), __I do not recommend nesting system directories.__ This may generate undesirable results.
+
 ## Building
 
 To manually build the project, you must first [install Rust](https://www.rust-lang.org/tools/install).

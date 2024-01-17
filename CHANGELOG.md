@@ -15,8 +15,10 @@ I'm new at this, so expect imperfection ;_; I'm trying!
 
 ### Documentation
 
-+ Updated demo image to match current project visuals
-+ Updated README's Building and Usage sections
++ Updated demo image
++ Updated README's "Building" and "Usage" sections
++ Added valid archive example to README
++ Added warning about nested system directories
 + Updated project synopsis semantics
 
 ## [0.1.3] - 2023-12-19
