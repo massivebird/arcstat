@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 I'm new at this, so expect imperfection ;_; I'm trying!
 
+## Unreleased
+
+### Changed
+
++ Changed file navigation strategy for improved performance (#14)
+
+### Fixed
+
++ Fixed byte to gigabyte conversion to be more accurate
+
 ## [0.1.5] - 2023-01-17
 
 ### Changed
