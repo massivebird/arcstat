@@ -6,14 +6,13 @@ use std::{
     sync::{Mutex, Arc},
     thread::{JoinHandle, self}, cmp::max
 };
-use walkdir::WalkDir;
 
 pub mod config;
 
 type ArcMutexHashmap<K, V> = Arc<Mutex<HashMap<K, V>>>;
 
 fn bytes_to_gigabytes(bytes: u64) -> f32 {
-    bytes as f32 / 1_000_000_000.0
+    bytes as f32 / 1_073_741_824.0
 }
 
 fn create_thread(
@@ -52,7 +51,8 @@ fn create_thread(
             }
 
             if system.games_are_directories && entry.path().is_dir() {
-                for _game_part in &entry.path() {
+                for game_part in std::path::Path::new(&entry.path()).read_dir().unwrap().filter_map(Result::ok) {
+                    let file_size = game_part.metadata().unwrap().len();
                     // add to this system's total file size
                     systems_map.lock().unwrap()
                         .entry((*system).clone())
