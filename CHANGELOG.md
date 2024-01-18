@@ -9,6 +9,10 @@ I'm new at this, so expect imperfection ;_; I'm trying!
 
 ## Unreleased
 
+### Added
+
++ Added GitHub Actions for simple automated testing
+
 ### Changed
 
 + Changed file navigation strategy for improved performance (#14)
