@@ -24,14 +24,15 @@ I'm new at this, so expect imperfection ;_; I'm trying!
 ### Fixed
 
 + Fixed byte to gigabyte conversion to be more accurate
++ Fixed incorrect dates in changelog
 
-## [0.1.5] - 2023-01-17
+## [0.1.5] - 2024-01-17
 
 ### Changed
 
 + Updated arcconfig => 0.2.1
 
-## [0.1.4] - 2023-01-16
+## [0.1.4] - 2024-01-16
 
 ### Fixed
 
