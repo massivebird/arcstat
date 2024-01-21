@@ -12,6 +12,10 @@ I'm new at this, so expect imperfection ;_; I'm trying!
 ### Added
 
 + Added GitHub Actions for simple automated testing
++ Added long help messages invoked with `--help`
++ Added some short option invocations
+  + `-r` for `--archive-root`
+  + `-s` for `--systems`
 
 ### Changed
 
