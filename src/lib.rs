@@ -11,10 +11,6 @@ pub mod config;
 
 type ArcMutexHashmap<K, V> = Arc<Mutex<HashMap<K, V>>>;
 
-fn bytes_to_gigabytes(bytes: u64) -> f32 {
-    bytes as f32 / 1_073_741_824.0
-}
-
 fn create_thread(
     config: Arc<Config>,
     system: Arc<System>,
@@ -96,17 +92,19 @@ pub fn run() {
     let config = Arc::new(config);
 
     // track (game_count, bytes) for each system
-    let systems_stats: ArcMutexHashmap<System, (u32, u64)> = Arc::new(Mutex::new(HashMap::new()));
+    let systems_stats: ArcMutexHashmap<System, (u32, u64)> = Arc::new(
+        Mutex::new(HashMap::new())
+    );
 
-    let mut children_threads: Vec<JoinHandle<()>> = Vec::with_capacity(systems.len());
+    let mut all_system_threads = Vec::with_capacity(systems.len());
 
     for system in &systems {
-        children_threads.push(
+        all_system_threads.push(
             create_thread(Arc::clone(&config), Arc::clone(system), Arc::clone(&systems_stats))
         );
     }
 
-    for thread in children_threads {
+    for thread in all_system_threads {
         thread.join().expect("Child thread has panicked");
     }
 
@@ -168,3 +166,8 @@ pub fn run() {
         bytes_to_gigabytes(totals.1),
     );
 }
+
+fn bytes_to_gigabytes(bytes: u64) -> f32 {
+    bytes as f32 / 1_073_741_824.0
+}
+
