@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 I'm new at this, so expect imperfection ;_; I'm trying!
 
+## [0.1.7] - 2024-01-23
+
+### Changed
+
++ Updated arcconfig dependency => 0.3.x
+
 ## [0.1.6] - 2024-01-20
 
 ### Added
@@ -19,7 +25,6 @@ I'm new at this, so expect imperfection ;_; I'm trying!
 
 ### Changed
 
-+ Updated arcconfig dependency => 0.3.x
 + Changed file navigation strategy for improved performance (#14)
 
 ### Fixed
