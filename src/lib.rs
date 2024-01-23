@@ -1,4 +1,4 @@
-use arcconfig::{System, read_config};
+use arcconfig::{read_config, system::System};
 use colored::{Colorize, ColoredString};
 use self::config::Config;
 use std::{

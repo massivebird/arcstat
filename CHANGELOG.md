@@ -15,6 +15,7 @@ I'm new at this, so expect imperfection ;_; I'm trying!
 
 ### Changed
 
++ Updated arcconfig dependency => 0.3.x
 + Changed file navigation strategy for improved performance (#14)
 
 ### Fixed
