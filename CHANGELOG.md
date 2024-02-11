@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 I'm new at this, so expect imperfection ;_; I'm trying!
 
+## Unreleased
+
+### Changed
+
++ __Breaking:__ Small file sizes are now displayed in megabytes
+
+### Added
+
++ __Breaking:__ Added median game size column (#8)
+
 ## [0.1.7] - 2024-01-23
 
 ### Changed
