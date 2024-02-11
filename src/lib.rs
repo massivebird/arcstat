@@ -22,10 +22,14 @@ fn create_thread(
             .entry((*system).clone())
             .or_insert((0,0));
 
-        let system_path = &(config.archive_root.clone() + "/" + system.directory.as_str());
+        let system_path = format!(
+            "{}/{}",
+            config.archive_root.clone(),
+            system.directory.as_str()
+        );
 
         let walk_archive = || {
-            Path::new(system_path)
+            Path::new(&system_path)
                 .read_dir()
                 .unwrap()
                 .filter_map(Result::ok) // silently skip errorful entries
@@ -100,7 +104,11 @@ pub fn run() {
 
     for system in &systems {
         all_system_threads.push(
-            create_thread(Arc::clone(&config), Arc::clone(system), Arc::clone(&systems_stats))
+            create_thread(
+                Arc::clone(&config),
+                Arc::clone(system),
+                Arc::clone(&systems_stats)
+            )
         );
     }
 
