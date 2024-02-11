@@ -14,13 +14,13 @@ type ArcMutexHashmap<K, V> = Arc<Mutex<HashMap<K, V>>>;
 fn create_thread(
     config: Arc<Config>,
     system: Arc<System>,
-    systems_map: ArcMutexHashmap<System, (u32, u64)>
+    systems_map: ArcMutexHashmap<System, (u32, Vec<u64>)>
 ) -> JoinHandle<()> {
     thread::spawn(move || {
         // initialize this system's data
         systems_map.lock().unwrap()
             .entry((*system).clone())
-            .or_insert((0,0));
+            .or_insert((0,Vec::new()));
 
         let system_path = format!(
             "{}/{}",
@@ -36,11 +36,11 @@ fn create_thread(
                 .filter(|e| !e.path().to_string_lossy().contains("!bios"))
         };
 
-        let add_to_total_system_size = |n: u64| {
+        let add_to_file_sizes = |n: u64| {
             // add to this system's total file size
             systems_map.lock().unwrap()
                 .entry((*system).clone())
-                .and_modify(|v| v.1 += n);
+                .and_modify(|(_, sizes)| sizes.push(n));
         };
 
         let increment_total_system_games = || {
@@ -53,7 +53,7 @@ fn create_thread(
         for entry in walk_archive() {
             let file_size = entry.metadata().unwrap().len();
 
-            add_to_total_system_size(file_size);
+            add_to_file_sizes(file_size);
 
             // if games are represented as directories,
             // increment game count only once per directory
@@ -72,7 +72,7 @@ fn create_thread(
 
                 for part in game_parts() {
                     let file_size = part.metadata().unwrap().len();
-                    add_to_total_system_size(file_size);
+                    add_to_file_sizes(file_size);
                 }
             }
 
@@ -96,7 +96,7 @@ pub fn run() {
     let config = Arc::new(config);
 
     // track (game_count, bytes) for each system
-    let systems_stats: ArcMutexHashmap<System, (u32, u64)> = Arc::new(
+    let systems_stats: ArcMutexHashmap<System, (u32, Vec<u64>)> = Arc::new(
         Mutex::new(HashMap::new())
     );
 
@@ -123,9 +123,9 @@ pub fn run() {
         totals.1 += file_size;
     };
 
-    let headers = ("System", "Games", "Size");
+    let headers = ("System", "Games", "Size", "Median Size");
 
-    let (col_1_width, col_2_width) = {
+    let (col_1_width, col_2_width, col_3_width) = {
         let col_1 = systems.iter()
             .map(|s| s.pretty_string.len())
             .max().unwrap();
@@ -135,12 +135,20 @@ pub fn run() {
             .map(|(game_count, _)| game_count.to_string().len())
             .max().unwrap();
 
+        let col_3 = systems_stats.lock().unwrap()
+            .values()
+            .map(|(_, file_size)| {
+                file_size.iter().sum::<u64>().to_string().len()
+            })
+            .max().unwrap();
+
         let padding = 2;
 
         // column space must be no less than length of header
         (
             max(col_1, headers.0.len()) + padding,
             max(col_2, headers.1.len()) + padding,
+            max(col_3, headers.2.len()) + padding,
         )
     };
 
@@ -148,10 +156,11 @@ pub fn run() {
         text.underline().white()
     };
 
-    println!("{: <col_1_width$}{: <col_2_width$}{}",
+    println!("{: <col_1_width$}{: <col_2_width$}{: <col_3_width$}{}",
     styled_header(headers.0),
     styled_header(headers.1),
-    styled_header(headers.2));
+    styled_header(headers.2),
+    styled_header(headers.3));
 
     let all_systems_stats = || {
         systems
@@ -160,13 +169,24 @@ pub fn run() {
     };
 
     for system in all_systems_stats() {
-        let (game_count, file_size) = *systems_stats.lock().unwrap()
-            .get(system.as_ref()).unwrap();
-        add_to_totals((game_count, file_size));
+        let unlocked = systems_stats.lock().unwrap();
 
-        println!("{: <col_1_width$}{game_count: <col_2_width$}{:.2}G",
+        let (game_count, sizes) = unlocked
+            .get(system.as_ref()).unwrap();
+
+        let total_system_size = sizes.iter().sum::<u64>();
+        let median_size = sizes.iter().nth(sizes.len()/2).unwrap();
+
+        add_to_totals((*game_count, total_system_size));
+
+        let file_size_string = format!(
+            "{:.2}G",
+            bytes_to_gigabytes(total_system_size)
+        );
+
+        println!("{: <col_1_width$}{game_count: <col_2_width$}{file_size_string: <col_3_width$}{:.2}G",
         system.pretty_string,
-        bytes_to_gigabytes(file_size));
+        bytes_to_gigabytes(*median_size));
     }
 
     println!("{: <col_1_width$}{: <col_2_width$}{:.2}G", " ",
