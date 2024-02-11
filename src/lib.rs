@@ -51,9 +51,11 @@ fn create_thread(
         };
 
         for entry in walk_archive() {
-            let file_size = entry.metadata().unwrap().len();
-
-            add_to_file_sizes(file_size);
+            // don't add directory sizes to totals, they're weirdos
+            if !entry.path().is_dir() {
+                let file_size = entry.metadata().unwrap().len();
+                add_to_file_sizes(file_size);
+            }
 
             // if games are represented as directories,
             // increment game count only once per directory
@@ -138,7 +140,7 @@ pub fn run() {
         let col_3 = systems_stats.lock().unwrap()
             .values()
             .map(|(_, file_size)| {
-                file_size.iter().sum::<u64>().to_string().len()
+                bytes_to_human(file_size.iter().sum::<u64>()).len()
             })
             .max().unwrap();
 
@@ -169,33 +171,39 @@ pub fn run() {
     };
 
     for system in all_systems_stats() {
-        let unlocked = systems_stats.lock().unwrap();
+        let mut unlocked = systems_stats.lock().unwrap();
 
         let (game_count, sizes) = unlocked
-            .get(system.as_ref()).unwrap();
+            .get_mut(system.as_ref()).unwrap();
+
+        sizes.sort();
 
         let total_system_size = sizes.iter().sum::<u64>();
-        let median_size = sizes.iter().nth(sizes.len()/2).unwrap();
+        let median_size = *sizes.iter().nth(sizes.len()/2).unwrap();
 
         add_to_totals((*game_count, total_system_size));
 
-        let file_size_string = format!(
-            "{:.2}G",
-            bytes_to_gigabytes(total_system_size)
-        );
+        let file_size_string = bytes_to_human(total_system_size);
 
-        println!("{: <col_1_width$}{game_count: <col_2_width$}{file_size_string: <col_3_width$}{:.2}G",
+        println!("{: <col_1_width$}{game_count: <col_2_width$}{file_size_string: <col_3_width$}{}",
         system.pretty_string,
-        bytes_to_gigabytes(*median_size));
+        bytes_to_human(median_size));
     }
 
-    println!("{: <col_1_width$}{: <col_2_width$}{:.2}G", " ",
+    println!("{: <col_1_width$}{: <col_2_width$}{}", " ",
         totals.0,
-        bytes_to_gigabytes(totals.1),
+        bytes_to_human(totals.1),
     );
 }
 
-fn bytes_to_gigabytes(bytes: u64) -> f32 {
-    bytes as f32 / 1_073_741_824.0
+fn bytes_to_human(bytes: u64) -> String {
+    let bytes = bytes as f32;
+    let bytes_per_megabyte = 1_048_576.0;
+    let bytes_per_gigabyte = 1_073_741_824.0;
+    if bytes > bytes_per_gigabyte {
+        return format!("{:.2}G", bytes / bytes_per_gigabyte)
+    } else {
+        format!("{:.2}M", bytes / bytes_per_megabyte)
+    }
 }
 
