@@ -146,7 +146,7 @@ pub fn run() {
 
         let padding = 2;
 
-        // column space must be no less than length of header
+        // column width must be no less than length of header
         (
             max(col_1, headers.0.len()) + padding,
             max(col_2, headers.1.len()) + padding,
@@ -176,18 +176,18 @@ pub fn run() {
         let (game_count, sizes) = unlocked
             .get_mut(system.as_ref()).unwrap();
 
-        sizes.sort();
-
         let total_system_size = sizes.iter().sum::<u64>();
-        let median_size = *sizes.iter().nth(sizes.len()/2).unwrap();
+
+        sizes.sort_unstable();
+        let median_size = *sizes.get(sizes.len()/2).unwrap();
 
         add_to_totals((*game_count, total_system_size));
 
-        let file_size_string = bytes_to_human(total_system_size);
-
-        println!("{: <col_1_width$}{game_count: <col_2_width$}{file_size_string: <col_3_width$}{}",
-        system.pretty_string,
-        bytes_to_human(median_size));
+        println!("{: <col_1_width$}{game_count: <col_2_width$}{: <col_3_width$}{}",
+            system.pretty_string,
+            bytes_to_human(total_system_size),
+            bytes_to_human(median_size)
+        );
     }
 
     println!("{: <col_1_width$}{: <col_2_width$}{}", " ",
@@ -201,7 +201,7 @@ fn bytes_to_human(bytes: u64) -> String {
     let bytes_per_megabyte = 1_048_576.0;
     let bytes_per_gigabyte = 1_073_741_824.0;
     if bytes > bytes_per_gigabyte {
-        return format!("{:.2}G", bytes / bytes_per_gigabyte)
+        format!("{:.2}G", bytes / bytes_per_gigabyte)
     } else {
         format!("{:.2}M", bytes / bytes_per_megabyte)
     }
