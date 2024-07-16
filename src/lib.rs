@@ -16,7 +16,7 @@ type ArcMutexHashmap<K, V> = Arc<Mutex<HashMap<K, V>>>;
 fn analyze_system(
     config: &Config,
     system: &System,
-    systems_map: ArcMutexHashmap<System, (u32, u64)>,
+    systems_map: &ArcMutexHashmap<System, (u32, u64)>,
 ) {
     // initialize this system's data
     systems_map
@@ -113,7 +113,7 @@ pub fn run() {
             let systems_stats = Arc::clone(&systems_stats);
 
             scope.spawn(move || {
-                analyze_system(config_ref, system_ref, systems_stats);
+                analyze_system(config_ref, system_ref, &systems_stats);
             });
         }
     });
