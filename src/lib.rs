@@ -6,6 +6,7 @@ use std::{
     collections::HashMap,
     path::Path,
     sync::{Arc, Mutex},
+    thread,
 };
 
 pub mod config;
@@ -13,8 +14,8 @@ pub mod config;
 type ArcMutexHashmap<K, V> = Arc<Mutex<HashMap<K, V>>>;
 
 fn analyze_system(
-    config: Arc<Config>,
-    system: Arc<System>,
+    config: &Config,
+    system: &System,
     systems_map: ArcMutexHashmap<System, (u32, u64)>,
 ) {
     // initialize this system's data
@@ -89,7 +90,7 @@ fn analyze_system(
 pub fn run() {
     let config = Config::new();
 
-    let systems: Vec<Arc<System>> = read_config(&config.archive_root)
+    let systems: Vec<System> = read_config(&config.archive_root)
         .into_iter()
         .filter(|s| {
             config
@@ -97,29 +98,25 @@ pub fn run() {
                 .clone()
                 .map_or(true, |labels| labels.contains(&s.label))
         })
-        .map(Arc::new)
         .collect();
-
-    let config = Arc::new(config);
 
     // track (game_count, bytes) for each system
     let systems_stats: ArcMutexHashmap<System, (u32, u64)> = Arc::new(Mutex::new(HashMap::new()));
 
-    let mut all_system_threads = Vec::with_capacity(systems.len());
+    // This scope will wait to terminate until all child threads terminate.
+    thread::scope(|scope| {
+        // Must create this ref outside of thread::spawn, else the thread will attempt to
+        // move config into itself
+        let config_ref = &config;
 
-    for system in &systems {
-        let config = Arc::clone(&config);
-        let system = Arc::clone(system);
-        let systems_stats = Arc::clone(&systems_stats);
+        for system_ref in &systems {
+            let systems_stats = Arc::clone(&systems_stats);
 
-        all_system_threads.push(std::thread::spawn(move || {
-            analyze_system(config, system, systems_stats);
-        }));
-    }
-
-    for thread in all_system_threads {
-        thread.join().expect("Child thread has panicked");
-    }
+            scope.spawn(move || {
+                analyze_system(config_ref, system_ref, systems_stats);
+            });
+        }
+    });
 
     let mut totals: (u32, u64) = (0, 0);
 
@@ -162,11 +159,11 @@ pub fn run() {
     let all_systems_stats = || {
         systems
             .iter()
-            .filter(|s| systems_stats.lock().unwrap().contains_key(s.as_ref()))
+            .filter(|s| systems_stats.lock().unwrap().contains_key(s))
     };
 
     for system in all_systems_stats() {
-        let (game_count, file_size) = *systems_stats.lock().unwrap().get(system.as_ref()).unwrap();
+        let (game_count, file_size) = *systems_stats.lock().unwrap().get(system).unwrap();
         add_to_totals((game_count, file_size));
 
         println!(
