@@ -13,6 +13,101 @@ pub mod config;
 
 type ArcMutexHashmap<K, V> = Arc<Mutex<HashMap<K, V>>>;
 
+pub fn run() {
+    let config = Config::new();
+
+    let systems: Vec<System> = read_config(&config.archive_root)
+        .into_iter()
+        .filter(|s| {
+            config
+                .desired_systems
+                .clone()
+                .map_or(true, |labels| labels.contains(&s.label))
+        })
+        .collect();
+
+    // track (game_count, bytes) for each system
+    let systems_stats: ArcMutexHashmap<System, (u32, u64)> = Arc::new(Mutex::new(HashMap::new()));
+
+    // This scope will wait to terminate until all child threads terminate.
+    thread::scope(|scope| {
+        // Must create this ref outside of thread::spawn, else the thread will attempt to
+        // move config into itself
+        let config_ref = &config;
+
+        for system_ref in &systems {
+            let systems_stats = Arc::clone(&systems_stats);
+
+            scope.spawn(move || {
+                analyze_system(config_ref, system_ref, &systems_stats);
+            });
+        }
+    });
+
+    let mut totals: (u32, u64) = (0, 0);
+
+    let mut add_to_totals = |(game_count, file_size): (u32, u64)| {
+        totals.0 += game_count;
+        totals.1 += file_size;
+    };
+
+    let headers = ("System", "Games", "Size");
+
+    let (col_1_width, col_2_width) = {
+        let col_1 = systems.iter().map(|s| s.pretty_string.len()).max().unwrap();
+
+        let col_2 = systems_stats
+            .lock()
+            .unwrap()
+            .values()
+            .map(|(game_count, _)| game_count.to_string().len())
+            .max()
+            .unwrap();
+
+        let padding = 2;
+
+        // column space must be no less than length of header
+        (
+            max(col_1, headers.0.len()) + padding,
+            max(col_2, headers.1.len()) + padding,
+        )
+    };
+
+    let styled_header = |text: &str| -> ColoredString { text.underline().white() };
+
+    // Prints header row
+    println!(
+        "{: <col_1_width$}{: <col_2_width$}{}",
+        styled_header(headers.0),
+        styled_header(headers.1),
+        styled_header(headers.2)
+    );
+
+    // Iterates over all systems, or only user-specified systems if any.
+    for system in systems
+        .iter()
+        .filter(|s| systems_stats.lock().unwrap().contains_key(s))
+    {
+        let (game_count, file_size) = *systems_stats.lock().unwrap().get(system).unwrap();
+
+        add_to_totals((game_count, file_size));
+
+        println!(
+            "{: <col_1_width$}{game_count: <col_2_width$}{:.2}G",
+            system.pretty_string,
+            bytes_to_gigabytes(file_size)
+        );
+    }
+
+    // Prints totals!
+    println!(
+        "{: <col_1_width$}{: <col_2_width$}{:.2}G",
+        " ",
+        totals.0,
+        bytes_to_gigabytes(totals.1),
+    );
+}
+
 fn analyze_system(
     config: &Config,
     system: &System,
@@ -85,100 +180,6 @@ fn analyze_system(
 
         increment_total_system_games();
     }
-}
-
-pub fn run() {
-    let config = Config::new();
-
-    let systems: Vec<System> = read_config(&config.archive_root)
-        .into_iter()
-        .filter(|s| {
-            config
-                .desired_systems
-                .clone()
-                .map_or(true, |labels| labels.contains(&s.label))
-        })
-        .collect();
-
-    // track (game_count, bytes) for each system
-    let systems_stats: ArcMutexHashmap<System, (u32, u64)> = Arc::new(Mutex::new(HashMap::new()));
-
-    // This scope will wait to terminate until all child threads terminate.
-    thread::scope(|scope| {
-        // Must create this ref outside of thread::spawn, else the thread will attempt to
-        // move config into itself
-        let config_ref = &config;
-
-        for system_ref in &systems {
-            let systems_stats = Arc::clone(&systems_stats);
-
-            scope.spawn(move || {
-                analyze_system(config_ref, system_ref, &systems_stats);
-            });
-        }
-    });
-
-    let mut totals: (u32, u64) = (0, 0);
-
-    let mut add_to_totals = |(game_count, file_size): (u32, u64)| {
-        totals.0 += game_count;
-        totals.1 += file_size;
-    };
-
-    let headers = ("System", "Games", "Size");
-
-    let (col_1_width, col_2_width) = {
-        let col_1 = systems.iter().map(|s| s.pretty_string.len()).max().unwrap();
-
-        let col_2 = systems_stats
-            .lock()
-            .unwrap()
-            .values()
-            .map(|(game_count, _)| game_count.to_string().len())
-            .max()
-            .unwrap();
-
-        let padding = 2;
-
-        // column space must be no less than length of header
-        (
-            max(col_1, headers.0.len()) + padding,
-            max(col_2, headers.1.len()) + padding,
-        )
-    };
-
-    let styled_header = |text: &str| -> ColoredString { text.underline().white() };
-
-    println!(
-        "{: <col_1_width$}{: <col_2_width$}{}",
-        styled_header(headers.0),
-        styled_header(headers.1),
-        styled_header(headers.2)
-    );
-
-    let all_systems_stats = || {
-        systems
-            .iter()
-            .filter(|s| systems_stats.lock().unwrap().contains_key(s))
-    };
-
-    for system in all_systems_stats() {
-        let (game_count, file_size) = *systems_stats.lock().unwrap().get(system).unwrap();
-        add_to_totals((game_count, file_size));
-
-        println!(
-            "{: <col_1_width$}{game_count: <col_2_width$}{:.2}G",
-            system.pretty_string,
-            bytes_to_gigabytes(file_size)
-        );
-    }
-
-    println!(
-        "{: <col_1_width$}{: <col_2_width$}{:.2}G",
-        " ",
-        totals.0,
-        bytes_to_gigabytes(totals.1),
-    );
 }
 
 fn bytes_to_gigabytes(bytes: u64) -> f32 {
