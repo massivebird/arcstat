@@ -44,13 +44,6 @@ fn main() {
         }
     });
 
-    let mut totals: (u32, u64) = (0, 0);
-
-    let mut add_to_totals = |(game_count, file_size): (u32, u64)| {
-        totals.0 += game_count;
-        totals.1 += file_size;
-    };
-
     let headers = ("System", "Games", "Size");
 
     let (col_1_width, col_2_width) = {
@@ -90,8 +83,6 @@ fn main() {
     {
         let (game_count, file_size) = *systems_stats.lock().unwrap().get(system).unwrap();
 
-        add_to_totals((game_count, file_size));
-
         println!(
             "{: <col_1_width$}{game_count: <col_2_width$}{:.2}G",
             system.pretty_string,
@@ -99,12 +90,20 @@ fn main() {
         );
     }
 
+    let (total_game_count, total_file_size) = systems_stats
+        .lock()
+        .unwrap()
+        .iter()
+        .fold((0, 0), |acc, (_, (game_count, file_size))| {
+            (acc.0 + game_count, acc.1 + file_size)
+        });
+
     // Prints totals!
     println!(
         "{: <col_1_width$}{: <col_2_width$}{:.2}G",
         " ",
-        totals.0,
-        bytes_to_gigabytes(totals.1),
+        total_game_count,
+        bytes_to_gigabytes(total_file_size),
     );
 }
 
