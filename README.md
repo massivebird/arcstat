@@ -1,6 +1,6 @@
 # arcstat
 
-> short for "archive search"
+> short for "archive stats"
 
 My command line utility for analyzing video game archives!
 
