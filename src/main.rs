@@ -136,44 +136,43 @@ fn analyze_system(
         system.directory.as_str()
     );
 
-    for entry in Path::new(&system_path)
+    Path::new(&system_path)
         .read_dir()
         .unwrap()
         .par_bridge()
         .filter_map(Result::ok) // silently skip errorful entries
         .filter(|e| !e.path().to_string_lossy().contains("!bios"))
-        .collect::<Vec<DirEntry>>()
-    {
-        let file_size = entry.metadata().unwrap().len();
+        .for_each(|entry| {
+            let file_size = entry.metadata().unwrap().len();
 
-        add_to_total_system_size(file_size);
+            add_to_total_system_size(file_size);
 
-        // If games are represented as directories,
-        // prevent normal files from incrementing game count.
-        if system.games_are_directories && entry.path().is_file() {
-            continue;
-        }
-
-        if system.games_are_directories && entry.path().is_dir() {
-            // Iterate over this game's multiple parts
-            for part in Path::new(&entry.path())
-                .read_dir()
-                .unwrap()
-                .filter_map(Result::ok)
-            // skip errorful entries
-            {
-                let file_size = part.metadata().unwrap().len();
-                add_to_total_system_size(file_size);
+            // If games are represented as directories,
+            // prevent normal files from incrementing game count.
+            if system.games_are_directories && entry.path().is_file() {
+                return;
             }
-        }
 
-        // Increment this system's game count
-        systems_map
-            .lock()
-            .unwrap()
-            .entry((*system).clone())
-            .and_modify(|v| v.0 += 1);
-    }
+            if system.games_are_directories && entry.path().is_dir() {
+                // Iterate over this game's multiple parts
+                for part in Path::new(&entry.path())
+                    .read_dir()
+                    .unwrap()
+                    .filter_map(Result::ok)
+                // skip errorful entries
+                {
+                    let file_size = part.metadata().unwrap().len();
+                    add_to_total_system_size(file_size);
+                }
+            }
+
+            // Increment this system's game count
+            systems_map
+                .lock()
+                .unwrap()
+                .entry((*system).clone())
+                .and_modify(|v| v.0 += 1);
+        });
 }
 
 fn bytes_to_gigabytes(bytes: u64) -> f32 {
