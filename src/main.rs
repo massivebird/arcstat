@@ -1,9 +1,11 @@
 use self::config::Config;
 use arcconfig::{read_config, system::System};
 use colored::{ColoredString, Colorize};
+use rayon::prelude::*;
 use std::{
     cmp::max,
     collections::HashMap,
+    fs::DirEntry,
     path::Path,
     sync::{Arc, Mutex},
     thread,
@@ -137,8 +139,10 @@ fn analyze_system(
     for entry in Path::new(&system_path)
         .read_dir()
         .unwrap()
+        .par_bridge()
         .filter_map(Result::ok) // silently skip errorful entries
         .filter(|e| !e.path().to_string_lossy().contains("!bios"))
+        .collect::<Vec<DirEntry>>()
     {
         let file_size = entry.metadata().unwrap().len();
 
