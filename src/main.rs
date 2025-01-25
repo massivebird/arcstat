@@ -1,9 +1,11 @@
 use self::config::Config;
 use arcconfig::{read_config, system::System};
 use colored::{ColoredString, Colorize};
+use rayon::prelude::*;
 use std::{
     cmp::max,
     collections::HashMap,
+    fs::DirEntry,
     path::Path,
     sync::{Arc, Mutex},
     thread,
@@ -26,20 +28,18 @@ fn main() {
         })
         .collect();
 
-    // track (game_count, bytes) for each system
+    // Record (game_count, bytes) per system.
     let systems_stats: ArcMutexHashmap<System, (u32, u64)> = Arc::new(Mutex::new(HashMap::new()));
 
-    // This scope will wait to terminate until all child threads terminate.
     thread::scope(|scope| {
-        // Must create this ref outside of thread::spawn, else the thread will attempt to
-        // move config into itself
-        let config_ref = &config;
-
         for system_ref in &systems {
             let systems_stats = Arc::clone(&systems_stats);
 
-            scope.spawn(move || {
-                analyze_system(config_ref, system_ref, &systems_stats);
+            scope.spawn({
+                let config_ref = &config; // Borrow without moving config.
+                move || {
+                    analyze_system(config_ref, system_ref, &systems_stats);
+                }
             });
         }
     });
@@ -68,7 +68,7 @@ fn main() {
 
     let styled_header = |text: &str| -> ColoredString { text.underline().white() };
 
-    // Prints header row
+    // Print header row.
     println!(
         "{: <col_1_width$}{: <col_2_width$}{}",
         styled_header(headers.0),
@@ -98,7 +98,7 @@ fn main() {
             (acc.0 + game_count, acc.1 + file_size)
         });
 
-    // Prints totals!
+    // Prints totals row.
     println!(
         "{: <col_1_width$}{: <col_2_width$}{:.2}G",
         " ",
@@ -112,14 +112,13 @@ fn analyze_system(
     system: &System,
     systems_map: &ArcMutexHashmap<System, (u32, u64)>,
 ) {
-    // Initialize this system's data
+    // Initialize this system's data.
     systems_map
         .lock()
         .unwrap()
         .entry((*system).clone())
         .or_insert((0, 0));
 
-    // I'll need this in multiple places later
     let add_to_total_system_size = |n: u64| {
         systems_map
             .lock()
@@ -134,12 +133,8 @@ fn analyze_system(
         system.directory.as_str()
     );
 
-    for entry in Path::new(&system_path)
-        .read_dir()
-        .unwrap()
-        .filter_map(Result::ok) // silently skip errorful entries
-        .filter(|e| !e.path().to_string_lossy().contains("!bios"))
-    {
+    // Call this for each file.
+    let analyze_entry = |entry: DirEntry| {
         let file_size = entry.metadata().unwrap().len();
 
         add_to_total_system_size(file_size);
@@ -147,29 +142,36 @@ fn analyze_system(
         // If games are represented as directories,
         // prevent normal files from incrementing game count.
         if system.games_are_directories && entry.path().is_file() {
-            continue;
+            return;
         }
 
         if system.games_are_directories && entry.path().is_dir() {
-            // Iterate over this game's multiple parts
+            // Iterate over this game's multiple parts.
             for part in Path::new(&entry.path())
                 .read_dir()
                 .unwrap()
                 .filter_map(Result::ok)
-            // skip errorful entries
             {
                 let file_size = part.metadata().unwrap().len();
                 add_to_total_system_size(file_size);
             }
         }
 
-        // Increment this system's game count
+        // Increment this system's game count.
         systems_map
             .lock()
             .unwrap()
             .entry((*system).clone())
             .and_modify(|v| v.0 += 1);
-    }
+    };
+
+    Path::new(&system_path)
+        .read_dir()
+        .unwrap()
+        .par_bridge() // Run these in parallel with the rayon crate.
+        .filter_map(Result::ok)
+        .filter(|e| !e.path().to_string_lossy().contains("!bios"))
+        .for_each(analyze_entry);
 }
 
 fn bytes_to_gigabytes(bytes: u64) -> f32 {
