@@ -6,14 +6,15 @@ use std::{
     collections::HashMap,
     path::Path,
     sync::{Arc, Mutex},
-    thread,
 };
+use tokio::task::JoinSet;
 
 mod config;
 
 type ArcMutexHashmap<K, V> = Arc<Mutex<HashMap<K, V>>>;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let config = Config::generate();
 
     let systems: Vec<System> = read_config(&config.archive_root)
@@ -29,20 +30,16 @@ fn main() {
     // track (game_count, bytes) for each system
     let systems_stats: ArcMutexHashmap<System, (u32, u64)> = Arc::new(Mutex::new(HashMap::new()));
 
-    // This scope will wait to terminate until all child threads terminate.
-    thread::scope(|scope| {
-        // Must create this ref outside of thread::spawn, else the thread will attempt to
-        // move config into itself
-        let config_ref = &config;
+    let mut join_set: JoinSet<()> = JoinSet::new();
 
-        for system_ref in &systems {
-            let systems_stats = Arc::clone(&systems_stats);
+    for system in &systems {
+        let system = system.clone();
+        let config = config.clone();
+        let systems_stats = Arc::clone(&systems_stats);
+        join_set.spawn(async move { analyze_system(&config, &system, &systems_stats) });
+    }
 
-            scope.spawn(move || {
-                analyze_system(config_ref, system_ref, &systems_stats);
-            });
-        }
-    });
+    join_set.join_all().await;
 
     let headers = ("System", "Games", "Size");
 
@@ -107,6 +104,20 @@ fn main() {
     );
 }
 
+// async fn analyze_systems(
+//     systems: &Vec<System>,
+//     config: &Config,
+//     systems_map: &ArcMutexHashmap<System, (u32, u64)>,
+// ) {
+//     let mut join_set: JoinSet<()> = JoinSet::new();
+
+//     for system in systems {
+//         join_set.spawn(async { analyze_system(config, system, systems_map) });
+//     }
+
+//     while let Some(_) = join_set.join_next().await {}
+// }
+
 fn analyze_system(
     config: &Config,
     system: &System,
@@ -116,7 +127,7 @@ fn analyze_system(
     systems_map
         .lock()
         .unwrap()
-        .entry((*system).clone())
+        .entry((system).clone())
         .or_insert((0, 0));
 
     // I'll need this in multiple places later
@@ -124,7 +135,7 @@ fn analyze_system(
         systems_map
             .lock()
             .unwrap()
-            .entry((*system).clone())
+            .entry((system).clone())
             .and_modify(|v| v.1 += n);
     };
 
@@ -167,7 +178,7 @@ fn analyze_system(
         systems_map
             .lock()
             .unwrap()
-            .entry((*system).clone())
+            .entry(system.clone())
             .and_modify(|v| v.0 += 1);
     }
 }

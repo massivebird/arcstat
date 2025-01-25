@@ -2,6 +2,7 @@ use std::env;
 
 mod cli;
 
+#[derive(Clone)]
 pub struct Config {
     pub archive_root: String,
     pub desired_systems: Option<Vec<String>>,
