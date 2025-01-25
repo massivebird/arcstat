@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 I'm new at this, so expect imperfection ;_; I'm trying!
 
+## [0.1.8] - 2025-01-25
+
+### Added
+
++ Added [rayon](https://github.com/rayon-rs/rayon) crate for performance improvements.
+
 ## [0.1.7] - 2024-01-23
 
 ### Changed
