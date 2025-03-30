@@ -1,16 +1,13 @@
 use self::config::Config;
 use arcconfig::{read_config, system::System};
+use colored::ColoredString;
 use rayon::prelude::*;
-use regex::Regex;
 use std::{
     collections::VecDeque,
     path::Path,
     sync::{Arc, Mutex},
 };
-use tabled::{
-    settings::{object::Cell, Color, Style},
-    Table, Tabled,
-};
+use tabled::{settings::Style, Table, Tabled};
 use tokio::spawn;
 
 mod config;
@@ -24,7 +21,7 @@ struct Analysis {
 #[derive(Tabled)]
 struct TableRow {
     #[tabled(rename = "System")]
-    system_str: String,
+    system_str: ColoredString,
     #[tabled(rename = "Games")]
     num_games: u32,
     #[tabled(rename = "Size (GB)")]
@@ -64,47 +61,21 @@ async fn main() {
         total_file_size += analysis.file_size;
 
         table_rows.push(TableRow {
-            system_str: system.pretty_string.input,
+            system_str: system.pretty_string,
             num_games: analysis.num_games,
             file_size: format!("{:.02}", analysis.file_size as f32 / 1_073_741_824.0),
         });
     }
 
     table_rows.push(TableRow {
-        system_str: String::new(),
+        system_str: String::new().into(),
         num_games: total_num_games,
         file_size: format!("{:.02}", total_file_size as f32 / 1_073_741_824.0),
     });
 
     let mut table = Table::new(table_rows);
 
-    table.with(Style::psql().remove_vertical()).to_string();
-
-    // `colored::ColoredString` causes table formatting issues.
-    // We have to style them manually through tabled's API.
-    // This just means passing color data from colored to tabled.
-    let re = Regex::new(r"38;2;(?<r>\d+);(?<g>\d+);(?<b>\d+)").unwrap();
-
-    for (i, system) in systems.iter().enumerate() {
-        let (r, g, b) = {
-            let s = &system
-                .pretty_string
-                .fgcolor
-                .unwrap()
-                .to_fg_str()
-                .into_owned();
-
-            re.captures(s).map_or((255, 255, 255), |caps| {
-                (
-                    caps.name("r").unwrap().as_str().parse::<u8>().unwrap(),
-                    caps.name("g").unwrap().as_str().parse::<u8>().unwrap(),
-                    caps.name("b").unwrap().as_str().parse::<u8>().unwrap(),
-                )
-            })
-        };
-
-        table.modify(Cell::new(1 + i, 0), Color::rgb_fg(r, g, b));
-    }
+    table.with(Style::psql()).to_string();
 
     println!("{table}");
 }
