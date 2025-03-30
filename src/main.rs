@@ -54,8 +54,14 @@ async fn main() {
 
     let mut table_rows: Vec<TableRow> = Vec::new();
 
+    let mut total_num_games = 0;
+    let mut total_file_size = 0;
+
     for system in systems.clone() {
         let analysis = handles.pop_front().unwrap().await.unwrap();
+
+        total_num_games += analysis.num_games;
+        total_file_size += analysis.file_size;
 
         table_rows.push(TableRow {
             system_str: system.pretty_string.input,
@@ -63,6 +69,12 @@ async fn main() {
             file_size: format!("{:.02}", analysis.file_size as f32 / 1_073_741_824.0),
         });
     }
+
+    table_rows.push(TableRow {
+        system_str: String::new(),
+        num_games: total_num_games,
+        file_size: format!("{:.02}", total_file_size as f32 / 1_073_741_824.0),
+    });
 
     let mut table = Table::new(table_rows);
 
