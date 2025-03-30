@@ -25,10 +25,10 @@ struct Analysis {
 struct TableRow {
     #[tabled(rename = "System")]
     system_str: String,
-    #[tabled(rename = "Num games")]
+    #[tabled(rename = "Games")]
     num_games: u32,
-    #[tabled(rename = "Size")]
-    file_size: u64,
+    #[tabled(rename = "Size (GB)")]
+    file_size: String,
 }
 
 #[tokio::main]
@@ -60,7 +60,7 @@ async fn main() {
         table_rows.push(TableRow {
             system_str: system.pretty_string.input,
             num_games: analysis.num_games,
-            file_size: analysis.file_size,
+            file_size: format!("{:.02}", analysis.file_size as f32 / 1_073_741_824.0),
         });
     }
 
