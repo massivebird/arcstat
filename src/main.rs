@@ -1,9 +1,10 @@
 use self::config::Config;
 use arcconfig::{read_config, system::System};
-use colored::ColoredString;
-use tabled::settings::Style;
 use std::{collections::VecDeque, path::Path};
-use tabled::{Table, Tabled};
+use tabled::{
+    settings::{object::Cell, Color, Style},
+    Table, Tabled,
+};
 use tokio::spawn;
 
 mod config;
@@ -34,7 +35,7 @@ async fn main() {
             config
                 .desired_systems
                 .clone()
-                .map_or(true, |labels| labels.contains(&s.label))
+                .is_none_or(|labels| labels.contains(&s.label))
         })
         .collect();
 
@@ -47,11 +48,11 @@ async fn main() {
 
     let mut table_rows: Vec<TableRow> = Vec::new();
 
-    for system in systems {
+    for system in systems.clone() {
         let analysis = handles.pop_front().unwrap().await.unwrap();
 
         table_rows.push(TableRow {
-            system_str: system.label,
+            system_str: system.pretty_string.input,
             num_games: analysis.num_games,
             file_size: analysis.file_size,
         });
@@ -61,17 +62,38 @@ async fn main() {
 
     table.with(Style::psql());
 
+    // `colored::ColoredString` causes table formatting issues.
+    // We have to style them manually through tabled's API.
+    // This just means passing color data from colored to tabled.
+    for (i, system) in systems.iter().enumerate() {
+        let (r, g, b) = {
+            // "38;2;255;175;255"
+            let s = &system
+                .pretty_string
+                .fgcolor
+                .unwrap()
+                .to_fg_str()
+                .into_owned();
+
+            let mut vals = s[5..].split(';').map(|s| s.parse::<u8>().unwrap());
+
+            (
+                vals.next().unwrap(),
+                vals.next().unwrap(),
+                vals.next().unwrap(),
+            )
+        };
+
+        table.modify(Cell::new(1 + i, 0), Color::rgb_fg(r, g, b));
+    }
+
     println!("{table}");
 }
 
 fn analyze_system(config: Config, system: System) -> Analysis {
     let mut analysis = Analysis::default();
 
-    let system_path = format!(
-        "{}/{}",
-        config.archive_root.clone(),
-        system.directory.as_str()
-    );
+    let system_path = format!("{}/{}", config.archive_root, system.directory.as_str());
 
     // Call this for each file.
 
@@ -108,8 +130,4 @@ fn analyze_system(config: Config, system: System) -> Analysis {
     }
 
     analysis
-}
-
-fn bytes_to_gigabytes(bytes: u64) -> f32 {
-    bytes as f32 / 1_073_741_824.0
 }
