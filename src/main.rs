@@ -73,9 +73,9 @@ async fn main() {
         file_size: format!("{:.02}", total_file_size as f32 / 1_073_741_824.0),
     });
 
-    let mut table = Table::new(table_rows);
-
-    table.with(Style::psql().remove_vertical()).to_string();
+    let table = Table::new(table_rows)
+        .with(Style::psql().remove_vertical())
+        .to_string();
 
     println!("{table}");
 }
