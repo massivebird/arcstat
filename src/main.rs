@@ -1,5 +1,6 @@
 use self::config::Config;
 use arcconfig::{read_config, system::System};
+use regex::Regex;
 use std::{collections::VecDeque, path::Path};
 use tabled::{
     settings::{object::Cell, Color, Style},
@@ -65,9 +66,10 @@ async fn main() {
     // `colored::ColoredString` causes table formatting issues.
     // We have to style them manually through tabled's API.
     // This just means passing color data from colored to tabled.
+    let re = Regex::new(r"38;2;(?<r>\d+);(?<g>\d+);(?<b>\d+)").unwrap();
+
     for (i, system) in systems.iter().enumerate() {
         let (r, g, b) = {
-            // "38;2;255;175;255"
             let s = &system
                 .pretty_string
                 .fgcolor
@@ -75,13 +77,13 @@ async fn main() {
                 .to_fg_str()
                 .into_owned();
 
-            let mut vals = s[5..].split(';').map(|s| s.parse::<u8>().unwrap());
-
-            (
-                vals.next().unwrap(),
-                vals.next().unwrap(),
-                vals.next().unwrap(),
-            )
+            re.captures(s).map_or((255, 255, 255), |caps| {
+                (
+                    caps.name("r").unwrap().as_str().parse::<u8>().unwrap(),
+                    caps.name("g").unwrap().as_str().parse::<u8>().unwrap(),
+                    caps.name("b").unwrap().as_str().parse::<u8>().unwrap(),
+                )
+            })
         };
 
         table.modify(Cell::new(1 + i, 0), Color::rgb_fg(r, g, b));
