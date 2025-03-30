@@ -75,7 +75,7 @@ async fn main() {
 
     let mut table = Table::new(table_rows);
 
-    table.with(Style::psql()).to_string();
+    table.with(Style::psql().remove_vertical()).to_string();
 
     println!("{table}");
 }
