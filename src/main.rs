@@ -1,7 +1,12 @@
 use self::config::Config;
 use arcconfig::{read_config, system::System};
+use rayon::prelude::*;
 use regex::Regex;
-use std::{collections::VecDeque, path::Path};
+use std::{
+    collections::VecDeque,
+    path::Path,
+    sync::{Arc, Mutex},
+};
 use tabled::{
     settings::{object::Cell, Color, Style},
     Table, Tabled,
@@ -10,7 +15,7 @@ use tokio::spawn;
 
 mod config;
 
-#[derive(Default)]
+#[derive(Copy, Clone, Default)]
 struct Analysis {
     num_games: u32,
     file_size: u64,
@@ -93,43 +98,49 @@ async fn main() {
 }
 
 fn analyze_system(config: Config, system: System) -> Analysis {
-    let mut analysis = Analysis::default();
+    let analysis = Arc::new(Mutex::new(Analysis::default()));
 
     let system_path = format!("{}/{}", config.archive_root, system.directory.as_str());
 
-    // Call this for each file.
+    let analysis = Arc::clone(&analysis);
 
-    for entry in Path::new(&system_path)
+    Path::new(&system_path)
         .read_dir()
         .unwrap()
+        .par_bridge()
         .filter_map(Result::ok)
         .filter(|e| !e.path().to_string_lossy().contains("!bios"))
-    {
-        let file_size = entry.metadata().unwrap().len();
+        .for_each(|entry| {
+            let file_size = entry.metadata().unwrap().len();
 
-        analysis.file_size += file_size;
+            analysis.lock().unwrap().file_size += file_size;
 
-        // If games are represented as directories,
-        // prevent normal files from incrementing game count.
-        if system.games_are_directories && entry.path().is_file() {
-            continue;
-        }
-
-        if system.games_are_directories && entry.path().is_dir() {
-            // Iterate over this game's multiple parts.
-            for part in Path::new(&entry.path())
-                .read_dir()
-                .unwrap()
-                .filter_map(Result::ok)
-            {
-                let file_size = part.metadata().unwrap().len();
-                analysis.file_size += file_size;
+            // If games are represented as directories,
+            // prevent normal files from incrementing game count.
+            if system.games_are_directories && entry.path().is_file() {
+                return;
             }
-        }
 
-        // Increment this system's game count.
-        analysis.num_games += 1;
+            if system.games_are_directories && entry.path().is_dir() {
+                // Iterate over this game's multiple parts.
+                for part in Path::new(&entry.path())
+                    .read_dir()
+                    .unwrap()
+                    .filter_map(Result::ok)
+                {
+                    let file_size = part.metadata().unwrap().len();
+                    analysis.lock().unwrap().file_size += file_size;
+                }
+            }
+
+            // Increment this system's game count.
+            analysis.lock().unwrap().num_games += 1;
+        });
+
+    let a = analysis.lock().unwrap();
+
+    Analysis {
+        num_games: a.num_games,
+        file_size: a.file_size,
     }
-
-    analysis
 }
