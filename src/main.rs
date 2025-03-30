@@ -78,7 +78,7 @@ async fn main() {
 
     let mut table = Table::new(table_rows);
 
-    table.with(Style::psql());
+    table.with(Style::psql().remove_vertical()).to_string();
 
     // `colored::ColoredString` causes table formatting issues.
     // We have to style them manually through tabled's API.
