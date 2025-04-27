@@ -46,7 +46,7 @@ async fn main() {
 
     for system in systems.clone() {
         let config = config.clone();
-        handles.push_back(spawn(async { analyze_system(config, system) }));
+        handles.push_back(spawn(async move { analyze_system(&config, &system) }));
     }
 
     let mut table_rows: Vec<TableRow> = Vec::new();
@@ -80,7 +80,7 @@ async fn main() {
     println!("{table}");
 }
 
-fn analyze_system(config: Config, system: System) -> Analysis {
+fn analyze_system(config: &Config, system: &System) -> Analysis {
     let analysis = Arc::new(Mutex::new(Analysis::default()));
 
     let system_path = config.archive_root.join(system.directory.as_str());
