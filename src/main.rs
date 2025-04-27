@@ -83,7 +83,7 @@ async fn main() {
 fn analyze_system(config: Config, system: System) -> Analysis {
     let analysis = Arc::new(Mutex::new(Analysis::default()));
 
-    let system_path = format!("{}/{}", config.archive_root, system.directory.as_str());
+    let system_path = config.archive_root.join(system.directory.as_str());
 
     let analysis = Arc::clone(&analysis);
 
