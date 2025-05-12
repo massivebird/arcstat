@@ -12,7 +12,7 @@ use tokio::spawn;
 
 mod config;
 
-#[derive(Copy, Clone, Default, Debug)]
+#[derive(Copy, Clone, Default)]
 struct Analysis {
     num_games: u32,
     file_size: u64,
@@ -120,6 +120,11 @@ fn analyze_system(config: &Config, system: &System) -> Analysis {
             analysis.lock().unwrap().num_games += 1;
         });
 
-    // Retrieve the wrapped `Analysis`.
-    Arc::into_inner(analysis).unwrap().into_inner().unwrap()
+    // Acquire final result once parallel analysis is complete.
+    let result = analysis.lock().unwrap();
+
+    Analysis {
+        num_games: result.num_games,
+        file_size: result.file_size,
+    }
 }
